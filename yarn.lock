@@ -11,6 +11,14 @@
     "@ai-sdk/provider-utils" "4.0.27"
     "@vercel/oidc" "3.2.0"
 
+"@ai-sdk/groq@^3.0.39":
+  version "3.0.39"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/groq/-/groq-3.0.39.tgz#0345c1ece03afc0803c504c24715ccd2e30b1515"
+  integrity sha512-BZAr6DjCbzWQ0Qn1/TSsHo/bmCt4JaAMb4A7HCSUZBQCAcOjne/03D0sVjHnQhUC3TpwcmYiv7tHAviK7BluRw==
+  dependencies:
+    "@ai-sdk/provider" "3.0.10"
+    "@ai-sdk/provider-utils" "4.0.27"
+
 "@ai-sdk/openai@^3.0.63":
   version "3.0.63"
   resolved "https://registry.yarnpkg.com/@ai-sdk/openai/-/openai-3.0.63.tgz#5c263e55e920697645b3a1351962f9084d35092b"
