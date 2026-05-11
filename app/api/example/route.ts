@@ -1,5 +1,5 @@
 import { createGroq } from "@ai-sdk/groq";
-import { generateText } from "ai"; // Mudamos para generateText
+import { generateText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -7,7 +7,6 @@ const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-// Definimos o schema fora para reutilizar no parse
 const questionSchema = z.object({
   questions: z.array(
     z.object({
@@ -20,34 +19,35 @@ const questionSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    // 1. Captura os parâmetros (com fallback para não quebrar se vier vazio)
+    const body = await request.json().catch(() => ({}));
+    const { topic, amount } = body;
+
     const { text } = await generateText({
       model: groq('llama-3.1-8b-instant'),
-      system: `Você é um gerador de questões. 
+      system: `Você é um gerador de questões de múltipla escolha. 
       Responda ESTRITAMENTE com um JSON no formato: {"questions": [{"question": "...", "options": ["...", "..."], "answer": "..."}]}
-      Não adicione explicações, saudações ou blocos de código markdown.`,
-      prompt: 'Gere uma questão de múltipla escolha sobre quanto é 2+2.',
+      Não adicione explicações ou markdown.`,
+      prompt: `Gere ${amount || 1} questões sobre ${topic || 'Tecnologia'}` ,
     });
 
-    // 1. Limpeza de Markdown (caso a IA insista em mandar ```json)
+    // 2. Limpeza e Parse
     const cleanText = text.replace(/```json|```/g, "").trim();
-
-    // 2. Parse manual
     const jsonResponse = JSON.parse(cleanText);
 
-    // 3. Validação com o Schema que definimos antes
+    // 3. Validação Zod
     const validatedData = questionSchema.parse(jsonResponse);
 
     return NextResponse.json({ data: validatedData });
-  } catch (error) {
+
+  } catch (error: any) {
     console.error("Erro detalhado:", error);
-    
-    // Log para você ver no terminal o que a IA realmente mandou
-    if (error instanceof SyntaxError) {
-       console.log("A IA mandou um texto que não é JSON:", error);
-    }
 
     return NextResponse.json(
-      { error: "Erro no parse ou na IA", details: error },
+      { 
+        error: "Erro no parse ou na IA", 
+        details: error.message || "Erro desconhecido" 
+      },
       { status: 500 }
     );
   }
