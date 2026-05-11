@@ -18,7 +18,8 @@ const questionSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  try {
+
+  
     // 1. Captura os parâmetros (com fallback para não quebrar se vier vazio)
     const body = await request.json().catch(() => ({}));
     const { topic, amount } = body;
@@ -40,15 +41,5 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ data: validatedData });
 
-  } catch (error: any) {
-    console.error("Erro detalhado:", error);
-
-    return NextResponse.json(
-      { 
-        error: "Erro no parse ou na IA", 
-        details: error.message || "Erro desconhecido" 
-      },
-      { status: 500 }
-    );
-  }
+  
 }
