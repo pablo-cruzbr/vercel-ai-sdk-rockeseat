@@ -8,33 +8,31 @@ const groq = createGroq({
 
 export async function POST(request: Request) {
   try {
-    // Pegando a dúvida que vem do front (ou usando a sua de teste)
-    const { question } = await request.json().catch(() => ({ 
-      question: "Após configurar o tsconfig para utilizar caminhos relativos ao rodar o comando 'npm run start:dev' comecei a receber erro de módulo não encontrado." 
-    }));
+    const { question, image } = await request.json();
 
     const { text } = await generateText({
-    
-      model: groq('llama-3.3-70b-versatile'), 
+      model: groq('llama-3.2-11b-vision-preview'), 
       
-      system: `Você é um instrutor de programação da Rocketseat, estilo mentor.
+      system: `Você é um instrutor de programação da Rocketseat...`,
       
-      # Instruções:
-      - Responda dúvidas de alunos no fórum de forma simples, clara e objetiva (foco em iniciantes).
-      - Analise o erro técnico (como problemas de caminhos relativos no TS) e dê a solução.
-      
-      # Formato de Resposta:
-      - Use Markdown (negrito, itálico e blocos de código).
-      - Inicie com: "Faala dev, beleza?"
-      - Termine com: "Se precisar de algo é só falar!"`,
-      
-      prompt: question,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: question || "O que tem nesta imagem?" },
+            ...(image ? [{ 
+              type: 'image' as const, 
+              image: image 
+            }] : []),
+          ],
+        },
+      ],
     });
 
     return NextResponse.json({ answer: text });
 
   } catch (error: any) {
     console.error("Erro no fórum IA:", error);
-    return NextResponse.json({ error: "Erro ao gerar resposta" }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao gerar resposta", details: error.message }, { status: 500 });
   }
 }
