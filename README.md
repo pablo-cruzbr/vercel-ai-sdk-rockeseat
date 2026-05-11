@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🤖 Estudos de IA: Vercel AI SDK + Groq
 
-## Getting Started
+Repositório de testes e aprendizados sobre a implementação de Agentes de IA utilizando o ecossistema Next.js e o provedor Groq.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 📝 Teste 01: Geração de Texto Simples (`generateText`)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Objetivo:** Validar a conexão com a API do Groq e testar a resposta criativa do modelo.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Método:** `generateText`
+- **Stack:** `@ai-sdk/groq`, `Next.js App Router`
+- **Resultado esperado:** Uma string de texto puro com a personalidade definida no `system`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Exemplo de Implementação
+```typescript
+import { createGroq } from "@ai-sdk/groq";
+import { generateText } from "ai";
+import { NextResponse } from "next/server";
 
-## Learn More
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
-To learn more about Next.js, take a look at the following resources:
+export async function POST(request: Request) {
+  try {
+    const { text } = await generateText({
+      model: groq('llama-3.3-70b-versatile'), 
+      system: "Você é um assistente de IA humorístico",
+      prompt: 'Quanto que é 2+2'
+    });
+````
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📊 Teste 02: Agente Gerador de Objetos (`generateObject`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Objetivo:** Gerar dados estruturados e tipados (JSON) que podem ser consumidos diretamente pela aplicação, eliminando a necessidade de tratar a resposta como texto simples.
 
-## Deploy on Vercel
+### ⚙️ Funcionamento
+Diferente do `generateText`, o `generateObject` utiliza um schema (geralmente feito com **Zod**) para forçar a IA a seguir uma estrutura de dados rigorosa. Se a IA tentar enviar um campo faltando ou com tipo errado, o SDK barra a resposta.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+### 💻 Implementação Técnica
+
+```typescript
+import { createGroq } from "@ai-sdk/groq";
+import { generateObject } from "ai";
+import { z } from "zod";
+
+const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+
+// 1. Definição da estrutura esperada (Schema)
+const questionSchema = z.object({
+  questions: z.array(
+    z.object({
+      question: z.string(),
+      options: z.array(z.string()),
+      answer: z.string(),
+    })
+  ),
+});
+
+export async function POST() {
+  const { object } = await generateObject({
+    model: groq('llama-3.1-8b-instant'),
+    output: 'object',
+    schema: questionSchema,
+    system: "Você é um gerador de questões técnico.",
+    prompt: "Gere uma questão sobre TypeScript.",
+  });
+
+  // O 'object' já vem tipado conforme o questionSchema
+  return Response.json(object);
+}
+
+    return NextResponse.json({ message: text });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Erro na IA" }, { status: 500 });
+  }
+}
