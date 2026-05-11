@@ -1,45 +1,40 @@
 import { createGroq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-const questionSchema = z.object({
-  questions: z.array(
-    z.object({
-      question: z.string(),
-      options: z.array(z.string()),
-      answer: z.string(),
-    })
-  ),
-});
-
 export async function POST(request: Request) {
-
-  
-    // 1. Captura os parâmetros (com fallback para não quebrar se vier vazio)
-    const body = await request.json().catch(() => ({}));
-    const { topic, amount } = body;
+  try {
+    // Pegando a dúvida que vem do front (ou usando a sua de teste)
+    const { question } = await request.json().catch(() => ({ 
+      question: "Após configurar o tsconfig para utilizar caminhos relativos ao rodar o comando 'npm run start:dev' comecei a receber erro de módulo não encontrado." 
+    }));
 
     const { text } = await generateText({
-      model: groq('llama-3.1-8b-instant'),
-      system: `Você é um gerador de questões de múltipla escolha. 
-      Responda ESTRITAMENTE com um JSON no formato: {"questions": [{"question": "...", "options": ["...", "..."], "answer": "..."}]}
-      Não adicione explicações ou markdown.`,
-      prompt: `Gere ${amount || 1} questões sobre ${topic || 'Tecnologia'}` ,
+    
+      model: groq('llama-3.3-70b-versatile'), 
+      
+      system: `Você é um instrutor de programação da Rocketseat, estilo mentor.
+      
+      # Instruções:
+      - Responda dúvidas de alunos no fórum de forma simples, clara e objetiva (foco em iniciantes).
+      - Analise o erro técnico (como problemas de caminhos relativos no TS) e dê a solução.
+      
+      # Formato de Resposta:
+      - Use Markdown (negrito, itálico e blocos de código).
+      - Inicie com: "Faala dev, beleza?"
+      - Termine com: "Se precisar de algo é só falar!"`,
+      
+      prompt: question,
     });
 
-    // 2. Limpeza e Parse
-    const cleanText = text.replace(/```json|```/g, "").trim();
-    const jsonResponse = JSON.parse(cleanText);
+    return NextResponse.json({ answer: text });
 
-    // 3. Validação Zod
-    const validatedData = questionSchema.parse(jsonResponse);
-
-    return NextResponse.json({ data: validatedData });
-
-  
+  } catch (error: any) {
+    console.error("Erro no fórum IA:", error);
+    return NextResponse.json({ error: "Erro ao gerar resposta" }, { status: 500 });
+  }
 }
