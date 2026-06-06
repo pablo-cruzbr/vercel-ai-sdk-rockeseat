@@ -32,7 +32,7 @@ export async function POST(request: Request) {
             { type: 'text', text: question || "Analise este print para mim, por favor." },
             ...(image ? [{ 
               type: 'image' as const, 
-              image: image // Deve ser a URL ou Base64 (data:image/...)
+              image: image 
             }] : []),
           ],
         },
