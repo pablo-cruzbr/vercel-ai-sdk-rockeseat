@@ -1,6 +1,6 @@
 "use client"
 
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
