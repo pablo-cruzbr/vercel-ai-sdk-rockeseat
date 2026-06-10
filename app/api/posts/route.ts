@@ -3,8 +3,36 @@ import { createGroq } from "@ai-sdk/groq";
 
 const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
+const ANGLES = [
+  "Uma conquista técnica específica com a história por trás",
+  "Um aprendizado real que mudou como você programa",
+  "Um projeto contado como narrativa: o problema, a solução, o que aprendeu",
+  "Mindset de desenvolvedor: algo que você viu no mercado e tem uma opinião sobre",
+  "Posicionamento direto: quem você é, o que construiu, o que quer",
+];
+
 export async function POST(request: Request) {
-  const { nome, cargo, stack, projetos, objetivo, tom } = await request.json();
+  const { nome, cargo, stack, projetos, objetivo, tom, singleAngle } = await request.json();
+
+  // modo regenerar: gera apenas 1 post com ângulo específico
+  if (typeof singleAngle === "number") {
+    const angle = ANGLES[singleAngle] ?? ANGLES[0];
+    const { text } = await generateText({
+      model: groq("llama-3.3-70b-versatile"),
+      temperature: 0.95,
+      prompt: `Escreva UM post para LinkedIn como se fosse ${nome}, um desenvolvedor falando sobre sua carreira.
+
+PERFIL: Cargo: ${cargo} | Stack: ${stack} | Projetos: ${projetos} | Objetivo: ${objetivo}
+
+ÂNGULO ESPECÍFICO: ${angle}
+
+REGRAS: primeira pessoa, específico, sem clichês de LinkedIn, parágrafos curtos, 3-5 hashtags no final.
+Tom: ${tom}
+
+Retorne APENAS o texto do post, sem JSON, sem introdução.`,
+    });
+    return Response.json({ post: text.trim() });
+  }
 
   const prompt = `Você vai escrever 5 posts para LinkedIn como se fosse ${nome} falando sobre sua própria carreira e projetos.
 
