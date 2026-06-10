@@ -73,4 +73,3 @@ function normalizePost(post: unknown): string {
   }
   return String(post ?? "");
 }
-}
