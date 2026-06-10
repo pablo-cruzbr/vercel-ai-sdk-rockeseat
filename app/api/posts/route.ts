@@ -35,11 +35,19 @@ Retorne apenas um JSON válido neste formato, sem texto adicional antes ou depoi
     temperature: 0.8,
   });
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return Response.json({ error: "Falha ao parsear resposta da IA" }, { status: 500 });
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("no json");
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed.posts)) throw new Error("no posts array");
+    return Response.json(parsed);
+  } catch {
+    // fallback: split by double newline if model didn't return JSON
+    const fallback = text
+      .split(/\n{2,}/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    return Response.json({ posts: fallback });
   }
-
-  const parsed = JSON.parse(jsonMatch[0]);
-  return Response.json(parsed);
 }
