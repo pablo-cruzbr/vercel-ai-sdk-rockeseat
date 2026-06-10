@@ -111,6 +111,7 @@ function PostsTab() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<number | null>(null);
   const [edited, setEdited] = useState<Record<number, string>>({});
+  const [regenerating, setRegenerating] = useState<number | null>(null);
 
   useEffect(() => {
     try {
@@ -152,6 +153,27 @@ function PostsTab() {
       setError("Não foi possível gerar os posts. Tente novamente.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function regeneratePost(postId: number) {
+    setRegenerating(postId);
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, singleAngle: postId }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPosts((prev) => {
+        const updated = prev.map((p) => p.id === postId ? { ...p, content: data.post } : p);
+        try { localStorage.setItem("pablodev-posts", JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      setEdited((prev) => { const n = { ...prev }; delete n[postId]; return n; });
+    } catch {} finally {
+      setRegenerating(null);
     }
   }
 
@@ -244,10 +266,19 @@ function PostsTab() {
                   <span className={`text-xs tabular-nums ${over ? "text-red-400 font-semibold" : "text-gray-600"}`}>
                     {content.length}/{LINKEDIN_LIMIT}{over && " — acima do limite"}
                   </span>
-                  <Button variant="outline" size="sm" onClick={() => copyPost(post)}
-                    className="border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 text-xs h-7 px-3">
-                    {copied === post.id ? "Copiado!" : "Copiar post"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => regeneratePost(post.id)}
+                      disabled={regenerating === post.id}
+                      className="text-xs text-gray-600 hover:text-blue-400 transition-colors disabled:opacity-40"
+                    >
+                      {regenerating === post.id ? "..." : "↺ Regenerar"}
+                    </button>
+                    <Button variant="outline" size="sm" onClick={() => copyPost(post)}
+                      className="border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 text-xs h-7 px-3">
+                      {copied === post.id ? "Copiado!" : "Copiar"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
