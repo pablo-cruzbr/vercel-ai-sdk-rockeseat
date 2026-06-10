@@ -534,26 +534,50 @@ function exportTxt(posts: string[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function exportPdf(posts: string[], title: string) {
-  const win = window.open("", "_blank");
-  if (!win) return;
-  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-<title>${title}</title>
-<style>
-  body{font-family:'Segoe UI',Arial,sans-serif;max-width:720px;margin:40px auto;color:#111;line-height:1.7;padding:0 20px}
-  h1{font-size:1.4rem;margin-bottom:32px;color:#1a1a1a}
-  .post{margin-bottom:48px;padding-bottom:48px;border-bottom:1px solid #e5e5e5}
-  .post:last-child{border-bottom:none}
-  .label{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:12px}
-  p{white-space:pre-wrap;margin:0;font-size:.95rem}
-  @media print{@page{margin:2cm}}
-</style></head><body>
-<h1>${title}</h1>
-${posts.map((p, i) => `<div class="post"><div class="label">Post ${i + 1}</div><p>${p.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p></div>`).join("")}
-<script>window.onload=()=>{window.print()}<\/script>
-</body></html>`;
-  win.document.write(html);
-  win.document.close();
+async function exportPdf(posts: string[], title: string) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  const margin = 15;
+  const pageW = doc.internal.pageSize.getWidth() - margin * 2;
+  const pageH = doc.internal.pageSize.getHeight();
+  let y = 22;
+
+  // título
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(20, 20, 20);
+  doc.text(title, margin, y);
+  y += 12;
+
+  posts.forEach((post, i) => {
+    if (y > pageH - 30) { doc.addPage(); y = 22; }
+
+    // cabeçalho do post
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`POST ${i + 1}`, margin, y);
+    y += 4;
+    doc.setDrawColor(220, 220, 220);
+    doc.line(margin, y, margin + pageW, y);
+    y += 6;
+
+    // conteúdo
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    const lines = doc.splitTextToSize(post, pageW) as string[];
+    lines.forEach((line) => {
+      if (y > pageH - 18) { doc.addPage(); y = 22; }
+      doc.text(line, margin, y);
+      y += 5;
+    });
+    y += 10;
+  });
+
+  const filename = title.replace(/[^a-zA-Z0-9\-_ ]/g, "").trim();
+  doc.save(`${filename}.pdf`);
 }
 
 // ─── shared components ────────────────────────────────────────────────────────
