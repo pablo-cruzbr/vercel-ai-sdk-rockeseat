@@ -102,7 +102,8 @@ FORMATO (JSON puro, sem nenhum texto fora do JSON):
   if (!match) return [];
   try {
     const parsed = JSON.parse(match[0]);
-    return Array.isArray(parsed.posts) ? parsed.posts : [];
+    const raw: unknown[] = Array.isArray(parsed.posts) ? parsed.posts : [];
+    return raw.map(normalizePost).filter(Boolean);
   } catch {
     return text
       .split(/\n{2,}/)
@@ -110,6 +111,19 @@ FORMATO (JSON puro, sem nenhum texto fora do JSON):
       .filter(Boolean)
       .slice(0, 5);
   }
+}
+
+function normalizePost(post: unknown): string {
+  if (typeof post === "string") return post;
+  if (post && typeof post === "object") {
+    const p = post as Record<string, unknown>;
+    const body = typeof p.text === "string" ? p.text : typeof p.content === "string" ? p.content : "";
+    const tags = Array.isArray(p.hashtags)
+      ? p.hashtags.map((h) => (String(h).startsWith("#") ? h : `#${h}`)).join(" ")
+      : "";
+    return tags ? `${body}\n\n${tags}` : body;
+  }
+  return String(post ?? "");
 }
 
 export async function POST(request: Request) {
