@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -109,6 +109,19 @@ function PostsTab() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<number | null>(null);
 
+  useEffect(() => {
+    try {
+      const f = localStorage.getItem("pablodev-form");
+      if (f) setForm(JSON.parse(f));
+      const p = localStorage.getItem("pablodev-posts");
+      if (p) setPosts(JSON.parse(p));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem("pablodev-form", JSON.stringify(form)); } catch {}
+  }, [form]);
+
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
@@ -128,7 +141,9 @@ function PostsTab() {
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setPosts(data.posts.map((content: string, i: number) => ({ id: i, content })));
+      const newPosts = data.posts.map((content: string, i: number) => ({ id: i, content }));
+      setPosts(newPosts);
+      try { localStorage.setItem("pablodev-posts", JSON.stringify(newPosts)); } catch {}
     } catch {
       setError("Não foi possível gerar os posts. Tente novamente.");
     } finally {
