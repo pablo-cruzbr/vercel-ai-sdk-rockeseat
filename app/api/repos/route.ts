@@ -61,37 +61,41 @@ async function generatePostsForRepo(
 ) {
   const { text } = await generateText({
     model: groq("llama-3.1-8b-instant"),
-    temperature: 0.85,
-    prompt: `Você é especialista em posicionamento de carreira para desenvolvedores. Crie posts reais para LinkedIn em português do Brasil.
+    temperature: 0.9,
+    prompt: `Você vai escrever posts para LinkedIn como se fosse ${authorName}, um desenvolvedor fullstack falando sobre o projeto "${repo.name}".
 
-DADOS DO REPOSITÓRIO:
-- Nome: ${repo.name}
+DADOS DO PROJETO:
 - Descrição: ${repo.description}
-- Stack: ${repo.languages.join(", ")}
+- Stack usada: ${repo.languages.join(", ")}
 - Topics: ${repo.topics.join(", ")}
 - Commits: ${repo.commitCount} commits
-- Criado em: ${repo.createdAt} | Último push: ${repo.pushedAt}
-- Mensagens de commit recentes: ${repo.commitMessages.slice(0, 10).join(" | ")}
-- README (trecho):
-${repo.readme.slice(0, 2000)}
+- Período: ${repo.createdAt} até ${repo.pushedAt}
+- O que foi feito (commits): ${repo.commitMessages.slice(0, 15).join(" | ")}
+- README:
+${repo.readme.slice(0, 2500)}
 
-AUTOR: ${authorName}
+REGRAS DE VOZ E ESTILO:
+- Escreva em PRIMEIRA PESSOA, como ${authorName} contando sua própria história
+- Use "eu", "a gente", "meu time", "construí", "aprendi", "descobri", "tive que"
+- Seja específico: cite tecnologias pelo nome, mencione decisões reais, problemas concretos
+- Narrativa natural: "participei de uma hackathon onde a gente precisava resolver X...", "quando comecei a construir isso, o maior desafio foi..."
+- Mostre o raciocínio: por que escolheu essa tech, o que não funcionou primeiro, o que surpreendeu
+- Pode mencionar aprendizados novos: "foi a primeira vez que usei X", "nunca tinha trabalhado com Y antes"
+- Parágrafos curtos (1-3 linhas), linguagem direta, sem pompas
+- PROIBIDO: "humilde", "abençoado", "jornada incrível", "networking valioso", "muito grato", frases genéricas de LinkedIn
+- PROIBIDO inventar métricas que não estão nos dados acima
+- Hashtags relevantes no final de cada post (3 a 5)
+- Tom geral: ${tom}
 
-INSTRUÇÕES:
-- Gere exatamente 5 posts, cada um com um ângulo diferente:
-  1. O problema que o projeto resolve (storytelling do problema real)
-  2. Stack técnica e decisões de arquitetura (para devs)
-  3. Processo de construção / aprendizados
-  4. Resultado / impacto / métricas (se houver no README)
-  5. Post de busca por oportunidade ligando o projeto ao mercado
-- Posts diretos, sem clichês ("humilde", "abençoado", "jornada incrível")
-- 4 a 8 parágrafos curtos por post
-- Hashtags relevantes no final
-- Tom: ${tom}
-- Baseie APENAS no que está nos dados acima, não invente métricas
+CINCO POSTS com ângulos diferentes:
+1. A história por trás: por que esse projeto nasceu, qual problema real motivou
+2. O lado técnico: as escolhas de stack, uma decisão difícil, algo que aprendeu na prática
+3. O processo: como foi construir, o que foi diferente do esperado, o que faria diferente
+4. Resultado ou impacto: o que o projeto entrega, quem usa, o que mudou (só o que está nos dados)
+5. Conexão com mercado: o que esse projeto diz sobre o que você quer fazer profissionalmente
 
-FORMATO (JSON puro, sem texto fora):
-{"posts": ["post 1", "post 2", "post 3", "post 4", "post 5"]}`,
+FORMATO (JSON puro, sem nenhum texto fora do JSON):
+{"posts": ["post 1 completo", "post 2 completo", "post 3 completo", "post 4 completo", "post 5 completo"]}`,
   });
 
   const match = text.match(/\{[\s\S]*\}/);
