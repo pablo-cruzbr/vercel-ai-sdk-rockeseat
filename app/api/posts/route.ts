@@ -49,9 +49,9 @@ FORMATO (JSON puro, sem texto fora):
     if (!jsonMatch) throw new Error("no json");
     const parsed = JSON.parse(jsonMatch[0]);
     if (!Array.isArray(parsed.posts)) throw new Error("no posts array");
-    return Response.json(parsed);
+    const posts = parsed.posts.map(normalizePost).filter(Boolean);
+    return Response.json({ posts });
   } catch {
-    // fallback: split by double newline if model didn't return JSON
     const fallback = text
       .split(/\n{2,}/)
       .map((s) => s.trim())
@@ -59,4 +59,18 @@ FORMATO (JSON puro, sem texto fora):
       .slice(0, 5);
     return Response.json({ posts: fallback });
   }
+}
+
+function normalizePost(post: unknown): string {
+  if (typeof post === "string") return post;
+  if (post && typeof post === "object") {
+    const p = post as Record<string, unknown>;
+    const body = typeof p.text === "string" ? p.text : typeof p.content === "string" ? p.content : "";
+    const tags = Array.isArray(p.hashtags)
+      ? p.hashtags.map((h) => (String(h).startsWith("#") ? h : `#${h}`)).join(" ")
+      : "";
+    return tags ? `${body}\n\n${tags}` : body;
+  }
+  return String(post ?? "");
+}
 }
