@@ -15,7 +15,13 @@ async function fetchRepoData(ownerRepo: string, headers: HeadersInit) {
     fetch(`https://api.github.com/repos/${ownerRepo}/readme`, { headers }),
   ]);
 
-  if (!infoRes.ok) throw new Error(`Repo não encontrado: ${ownerRepo}`);
+  if (!infoRes.ok) {
+    const status = infoRes.status;
+    if (status === 404) throw new Error(`${ownerRepo}: repo não encontrado ou privado (401 necessário)`);
+    if (status === 403 || status === 429) throw new Error(`${ownerRepo}: rate limit da API do GitHub — adicione GITHUB_TOKEN no .env.local`);
+    if (status === 401) throw new Error(`${ownerRepo}: repo privado — adicione GITHUB_TOKEN no .env.local`);
+    throw new Error(`${ownerRepo}: erro ${status} da API do GitHub`);
+  }
 
   const info = await infoRes.json();
   const langs: Record<string, number> = langsRes.ok ? await langsRes.json() : {};
