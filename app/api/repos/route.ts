@@ -100,23 +100,38 @@ CINCO POSTS com ângulos diferentes:
 4. Resultado ou impacto: o que o projeto entrega, quem usa, o que mudou (só o que está nos dados)
 5. Conexão com mercado: o que esse projeto diz sobre o que você quer fazer profissionalmente
 
-FORMATO (JSON puro, sem nenhum texto fora do JSON):
-{"posts": ["post 1 completo", "post 2 completo", "post 3 completo", "post 4 completo", "post 5 completo"]}`,
+FORMATO — retorne APENAS este JSON, sem texto antes ou depois, sem markdown, sem explicações:
+{"posts": ["post 1 completo aqui", "post 2 completo aqui", "post 3 completo aqui", "post 4 completo aqui", "post 5 completo aqui"]}`,
   });
 
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return [];
-  try {
-    const parsed = JSON.parse(match[0]);
-    const raw: unknown[] = Array.isArray(parsed.posts) ? parsed.posts : [];
-    return raw.map(normalizePost).filter(Boolean);
-  } catch {
-    return text
-      .split(/\n{2,}/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .slice(0, 5);
+  // 1. tenta extrair JSON de dentro de bloco markdown ```json ... ```
+  const codeBlock = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  const rawJson = codeBlock ? codeBlock[1] : text.match(/\{[\s\S]*\}/)?.[0];
+
+  if (rawJson) {
+    try {
+      const parsed = JSON.parse(rawJson);
+
+      // formato esperado: { posts: [...] }
+      if (Array.isArray(parsed.posts) && parsed.posts.length > 0) {
+        return parsed.posts.map(normalizePost).filter(Boolean);
+      }
+
+      // formato alternativo: { post_1: "...", post_2: "..." }
+      const vals = Object.values(parsed).filter((v) => typeof v === "string" || typeof v === "object");
+      if (vals.length > 0) return vals.map(normalizePost).filter(Boolean).slice(0, 5);
+    } catch {
+      // JSON inválido — cai no fallback abaixo
+    }
   }
+
+  // 2. fallback: divide por parágrafo duplo ou linha com "Post N"
+  const bySection = text.split(/\n(?=Post \d|#{1,3} Post|\d\.\s)/i);
+  if (bySection.length >= 2) {
+    return bySection.map((s) => s.replace(/^(Post \d+:?|#{1,3} Post \d+|[\d]+\.\s)/i, "").trim()).filter(Boolean).slice(0, 5);
+  }
+
+  return text.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean).slice(0, 5);
 }
 
 function normalizePost(post: unknown): string {
