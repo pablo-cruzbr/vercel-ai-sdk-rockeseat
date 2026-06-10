@@ -110,6 +110,7 @@ function PostsTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<number | null>(null);
+  const [edited, setEdited] = useState<Record<number, string>>({});
 
   useEffect(() => {
     try {
@@ -134,6 +135,7 @@ function PostsTab() {
     e.preventDefault();
     setError("");
     setPosts([]);
+    setEdited({});
     setLoading(true);
     try {
       const res = await fetch("/api/posts", {
@@ -153,8 +155,12 @@ function PostsTab() {
     }
   }
 
+  function getContent(post: Post) {
+    return edited[post.id] ?? post.content;
+  }
+
   async function copyPost(post: Post) {
-    await navigator.clipboard.writeText(post.content);
+    await navigator.clipboard.writeText(getContent(post));
     setCopied(post.id);
     setTimeout(() => setCopied(null), 2000);
   }
@@ -224,13 +230,19 @@ function PostsTab() {
         )}
         <div className="flex flex-col gap-4">
           {posts.map((post) => {
-            const over = post.content.length > LINKEDIN_LIMIT;
+            const content = getContent(post);
+            const over = content.length > LINKEDIN_LIMIT;
             return (
               <div key={post.id} className="bg-[#111] border border-gray-800 rounded-xl p-5 flex flex-col gap-3">
-                <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{post.content}</p>
+                <textarea
+                  value={content}
+                  onChange={(e) => setEdited((prev) => ({ ...prev, [post.id]: e.target.value }))}
+                  rows={Math.max(5, content.split("\n").length + 1)}
+                  className="text-sm text-gray-300 leading-relaxed bg-transparent border-none outline-none resize-none w-full"
+                />
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-xs tabular-nums ${over ? "text-red-400 font-semibold" : "text-gray-600"}`}>
-                    {post.content.length}/{LINKEDIN_LIMIT}{over && " — acima do limite"}
+                    {content.length}/{LINKEDIN_LIMIT}{over && " — acima do limite"}
                   </span>
                   <Button variant="outline" size="sm" onClick={() => copyPost(post)}
                     className="border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 text-xs h-7 px-3">
