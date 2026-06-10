@@ -102,6 +102,8 @@ function TabButton({
 
 // ─── posts tab ────────────────────────────────────────────────────────────────
 
+const LINKEDIN_LIMIT = 3000;
+
 function PostsTab() {
   const [form, setForm] = useState<FormData>(defaultForm);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -221,15 +223,23 @@ function PostsTab() {
           </div>
         )}
         <div className="flex flex-col gap-4">
-          {posts.map((post) => (
-            <div key={post.id} className="bg-[#111] border border-gray-800 rounded-xl p-5 flex flex-col gap-3">
-              <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{post.content}</p>
-              <Button variant="outline" size="sm" onClick={() => copyPost(post)}
-                className="self-end border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 text-xs">
-                {copied === post.id ? "Copiado!" : "Copiar post"}
-              </Button>
-            </div>
-          ))}
+          {posts.map((post) => {
+            const over = post.content.length > LINKEDIN_LIMIT;
+            return (
+              <div key={post.id} className="bg-[#111] border border-gray-800 rounded-xl p-5 flex flex-col gap-3">
+                <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{post.content}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-xs tabular-nums ${over ? "text-red-400 font-semibold" : "text-gray-600"}`}>
+                    {post.content.length}/{LINKEDIN_LIMIT}{over && " — acima do limite"}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => copyPost(post)}
+                    className="border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 text-xs h-7 px-3">
+                    {copied === post.id ? "Copiado!" : "Copiar post"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
     </main>
