@@ -39,7 +39,7 @@ FORMATO (JSON puro, sem texto fora):
 {"posts": ["post 1 completo", "post 2 completo", "post 3 completo", "post 4 completo", "post 5 completo"]}`;
 
   const { text } = await generateText({
-    model: groq("llama-3.1-8b-instant"),
+    model: groq("llama-3.3-70b-versatile"),
     prompt,
     temperature: 0.8,
   });
