@@ -250,6 +250,22 @@ function PostsTab() {
             ))}
           </div>
         )}
+        {posts.length > 0 && (
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => exportTxt(posts.map(getContent), `posts-linkedin-${new Date().toISOString().slice(0,10)}`)}
+              className="text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-3 py-1.5 rounded-md transition-colors"
+            >
+              ⬇ Baixar .txt
+            </button>
+            <button
+              onClick={() => exportPdf(posts.map(getContent), "Posts LinkedIn — Pablo Cruz")}
+              className="text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-3 py-1.5 rounded-md transition-colors"
+            >
+              ⬇ Baixar .pdf
+            </button>
+          </div>
+        )}
         <div className="flex flex-col gap-4">
           {posts.map((post) => {
             const content = getContent(post);
@@ -397,9 +413,31 @@ function GithubTab() {
 
       {results.length > 0 && (
         <>
-          <p className="text-gray-500 text-sm mb-6">
-            {results.length} repositórios · {totalPosts} posts gerados
-          </p>
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <p className="text-gray-500 text-sm">
+              {results.length} repositórios · {totalPosts} posts gerados
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const all = results.flatMap((r) => r.posts.map((p, i) => `[${r.name} — Post ${i+1}]\n\n${p}`));
+                  exportTxt(all, `repos-linkedin-${new Date().toISOString().slice(0,10)}`);
+                }}
+                className="text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-3 py-1.5 rounded-md transition-colors"
+              >
+                ⬇ Todos .txt
+              </button>
+              <button
+                onClick={() => {
+                  const all = results.flatMap((r) => r.posts.map((p, i) => `[${r.name} — Post ${i+1}]\n\n${p}`));
+                  exportPdf(all, "Posts LinkedIn por Repositório — Pablo Cruz");
+                }}
+                className="text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-3 py-1.5 rounded-md transition-colors"
+              >
+                ⬇ Todos .pdf
+              </button>
+            </div>
+          </div>
           <div className="flex flex-col gap-4">
             {results.map((repo) => (
               <div key={repo.ownerRepo} className="bg-[#111] border border-gray-800 rounded-xl overflow-hidden">
@@ -438,6 +476,18 @@ function GithubTab() {
                 {/* posts list */}
                 {openRepo === repo.ownerRepo && (
                   <div className="border-t border-gray-800 p-5 flex flex-col gap-4">
+                    {repo.posts.length > 0 && (
+                      <div className="flex gap-2">
+                        <button onClick={() => exportTxt(repo.posts, repo.name)}
+                          className="text-xs border border-gray-800 text-gray-500 hover:text-white hover:border-gray-600 px-3 py-1 rounded-md transition-colors">
+                          ⬇ .txt
+                        </button>
+                        <button onClick={() => exportPdf(repo.posts, `${repo.name} — Posts LinkedIn`)}
+                          className="text-xs border border-gray-800 text-gray-500 hover:text-white hover:border-gray-600 px-3 py-1 rounded-md transition-colors">
+                          ⬇ .pdf
+                        </button>
+                      </div>
+                    )}
                     {repo.posts.length === 0 && (
                       <p className="text-gray-600 text-sm">Nenhum post gerado para este repositório.</p>
                     )}
@@ -467,6 +517,43 @@ function GithubTab() {
       )}
     </main>
   );
+}
+
+// ─── export helpers ───────────────────────────────────────────────────────────
+
+function exportTxt(posts: string[], filename: string) {
+  const body = posts
+    .map((p, i) => `══ POST ${i + 1} ══\n\n${p}`)
+    .join("\n\n" + "─".repeat(50) + "\n\n");
+  const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportPdf(posts: string[], title: string) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  body{font-family:'Segoe UI',Arial,sans-serif;max-width:720px;margin:40px auto;color:#111;line-height:1.7;padding:0 20px}
+  h1{font-size:1.4rem;margin-bottom:32px;color:#1a1a1a}
+  .post{margin-bottom:48px;padding-bottom:48px;border-bottom:1px solid #e5e5e5}
+  .post:last-child{border-bottom:none}
+  .label{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:12px}
+  p{white-space:pre-wrap;margin:0;font-size:.95rem}
+  @media print{@page{margin:2cm}}
+</style></head><body>
+<h1>${title}</h1>
+${posts.map((p, i) => `<div class="post"><div class="label">Post ${i + 1}</div><p>${p.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p></div>`).join("")}
+<script>window.onload=()=>{window.print()}<\/script>
+</body></html>`;
+  win.document.write(html);
+  win.document.close();
 }
 
 // ─── shared components ────────────────────────────────────────────────────────
