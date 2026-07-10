@@ -1,46 +1,8 @@
-<<<<<<< HEAD
-"use client"
-
-import { useChat } from "@ai-sdk/react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
-
-export default function Home() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: "/api/chat",
-  })
-
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="bg-gray-300 w-full">
-        {messages.map((message) => (
-          <div key={message.id}>
-            <strong>{message.role === "user" ? "Você" : "Agente"}:</strong>
-            <p>{message.content}</p>
-          </div>
-        ))}
-      </div>
-
-      <form onSubmit={handleSubmit} className="flex w-full gap-2">
-        <Textarea
-          value={input}
-          onChange={handleInputChange}
-          placeholder="Como posso te ajudar?"
-          disabled={isLoading}
-        />
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? <Spinner /> : "Enviar"}
-        </Button>
-      </form>
-=======
 "use client";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-
-// ─── types ────────────────────────────────────────────────────────────────────
 
 interface Post {
   id: number;
@@ -66,8 +28,6 @@ interface RepoResult {
   stars: number;
   posts: string[];
 }
-
-// ─── defaults ─────────────────────────────────────────────────────────────────
 
 const defaultForm: FormData = {
   nome: "",
@@ -631,7 +591,6 @@ function Field({
         type="text" name={name} value={value} onChange={onChange} placeholder={placeholder}
         className="bg-[#111] border border-gray-700 text-white placeholder:text-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
       />
->>>>>>> fa3dba491e583b109e0e5f92173c3e65f959562d
     </div>
   );
 }
