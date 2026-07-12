@@ -45,8 +45,6 @@ pablo-cruzbr/Mestre_da_Comanda_Saas
 pablo-cruzbr/Portifolio-Metadata-API
 pablo-cruzbr/Controle-Financeiro-Sheets-API`;
 
-// ─── page ─────────────────────────────────────────────────────────────────────
-
 export default function App() {
   const [tab, setTab] = useState<"posts" | "github">("posts");
 
@@ -72,8 +70,6 @@ export default function App() {
     </div>
   );
 }
-
-// ─── tab button ───────────────────────────────────────────────────────────────
 
 function TabButton({
   active,
