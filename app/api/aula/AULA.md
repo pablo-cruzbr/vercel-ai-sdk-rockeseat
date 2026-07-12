@@ -597,7 +597,7 @@ Isso já não é diferencial — é o básico esperado.
 | Redis + BullMQ (fila) | não — raridade |
 | Deploy real (Vercel + Railway) | parcial |
 
-Você já tem projetos com IA rodando em produção (Bugless, Hone, AlltiControl).
+Você já tem projetos com IA rodando em produção (Bugless, Hone, FIreOS).
 Não é teoria — é portfólio real.
 
 ---
@@ -649,3 +649,120 @@ Você está no lugar certo, na hora certa, com a stack certa.
 O conhecimento você já está construindo aqui.
 O que falta é colocar os projetos no ar com README bom
 e aparecer onde os recrutadores olham.
+
+---
+
+---
+
+# Esse é um bom começo pra quem quer trabalhar com LLM e RAG?
+
+**Resposta direta: sim. E você já está no caminho certo.**
+
+Mas deixa eu explicar o porquê de forma honesta.
+
+---
+
+## O que você já tem depois dessas 3 aulas
+
+Quando você dominar as 3 rotas dessa pasta, você vai saber:
+
+- Chamar um LLM e receber texto (`generateText`)
+- Controlar o comportamento da IA com `system` e `prompt`
+- Mandar texto + imagem pro modelo (multimodal)
+- Fazer um chat em tempo real com histórico (`streamText`)
+- Conectar backend com frontend via `useChat`
+
+Isso é a **fundação**. Todo projeto com LLM — simples ou complexo — começa aqui.
+Sem entender isso bem, RAG e agentes não fazem sentido.
+
+---
+
+## Onde o LLM termina e o RAG começa
+
+Olha esse problema real:
+
+> Você tem um assistente de chat (Aula 3).
+> O usuário pergunta: "Quais OS abertas temos hoje?"
+> O LLM não sabe — ele não tem acesso ao seu banco.
+> Ele vai **inventar** uma resposta. Isso se chama alucinação.
+
+**LLM puro** = inteligente, mas cego pro seu sistema.
+
+Para resolver isso existem duas abordagens:
+
+```
+Tool Calling (próximo passo após as aulas)
+  → O modelo decide: "preciso de dados" → chama uma função → você busca no banco
+  → Exemplo: você já fez isso no FIreOS
+
+RAG — Retrieval Augmented Generation (depois do Tool Calling)
+  → Antes de chamar o modelo, você busca documentos relevantes
+  → Injeta esses documentos no prompt como contexto
+  → O modelo responde com base nos seus dados
+```
+
+**A diferença:**
+
+| | Tool Calling | RAG |
+|---|---|---|
+| Quando busca | O modelo decide | Sempre, antes de chamar o modelo |
+| Tipo de busca | Query exata (SQL) | Busca por significado (embeddings) |
+| Bom pra | Dados estruturados (banco) | Documentos, textos, artigos |
+| Complexidade | Médio | Maior |
+
+---
+
+## A progressão real pra trabalhar com LLM/RAG
+
+```
+ONDE VOCÊ ESTÁ AGORA
+  → Aulas 1, 2, 3 — fundação com Vercel AI SDK ✓
+
+PRÓXIMO PASSO (1-2 meses)
+  → Tool Calling: modelo chama funções do seu código
+  → maxSteps: agente que itera até resolver
+  → Você já viu isso no FIreOS — agora aprender do zero
+
+DEPOIS (2-3 meses)
+  → Embeddings: transformar texto em vetores numéricos
+  → pgvector: buscar por significado no PostgreSQL
+  → RAG básico: buscar contexto antes de chamar o LLM
+
+AVANÇADO (4-6 meses)
+  → RAG híbrido: keyword + semântica
+  → Agentes autônomos com múltiplas tools
+  → Memory: IA que lembra do usuário
+```
+
+---
+
+## Por que começar por aqui e não direto pelo RAG?
+
+Muita gente erra essa ordem — quer pular pro RAG sem ter a base.
+
+O RAG usa `generateText` por baixo.
+O agente usa `streamText` + `tools`.
+Sem entender as 3 aulas, você vai copiar código sem saber o que está fazendo.
+
+**Analogia:**
+RAG é como dirigir na estrada. Mas primeiro você precisa saber ligar o carro,
+engatar a marcha, e andar devagar. Essas 3 aulas são exatamente isso.
+
+---
+
+## Resposta final
+
+> "Esse é um bom começo pra mim que sou fullstack junior e quero trabalhar com LLM e RAG?"
+
+**Sim. É o melhor começo possível dado quem você é.**
+
+Você já sabe TypeScript, Next.js, PostgreSQL e Prisma.
+Isso significa que quando chegar no RAG, você não vai travar no banco ou nas queries.
+Você já vai dominar a infra — só vai precisar aprender a parte de IA.
+
+A maioria das pessoas que estudam RAG trava porque não sabe TypeScript bem.
+Você não vai ter esse problema.
+
+Siga a ordem:
+1. Dominar essas 3 aulas → 2. Tools → 3. Embeddings → 4. RAG
+e em 3 meses você vai ter condição de contribuir em projetos reais com IA.
