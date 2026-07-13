@@ -1173,6 +1173,70 @@ você vai saber que a solução chama BullMQ + Redis.
 
 ---
 
+### Node.js — seu papel nessa stack toda
+
+Você tem Node.js, e isso importa mais do que parece nesse contexto.
+
+**O que é Node.js nessa stack:**
+Node.js é o runtime que executa TypeScript/JavaScript no servidor.
+Quando você roda `bun run dev` ou `npm run dev`, por baixo tem Node.js
+(ou Bun, que é compatível) executando o seu código.
+
+**Por que importa pra IA:**
+
+Tudo que você faz nas rotas `/api/aula/*` roda em Node.js:
+```
+Requisição chega
+  → Next.js roteia pra sua route.ts
+  → Node.js executa o código
+  → Vercel AI SDK chama a API da Groq
+  → Node.js recebe o stream
+  → Resposta vai pro browser
+```
+
+**Node.js + IA — casos de uso reais:**
+
+```
+1. API Server (o que você já faz)
+   → Express / Next.js rodando em Node.js
+   → Recebe request, chama LLM, retorna resposta
+
+2. Workers em background (BullMQ)
+   → Node.js rodando separado da API
+   → Processa PDFs, gera embeddings, chama LLM em batch
+
+3. Scripts de ingestão (RAG)
+   → Script Node.js que lê arquivos, gera embeddings, salva no banco
+   → Roda uma vez pra "alimentar" o vector store
+
+4. Webhooks
+   → Node.js recebe evento externo (GitHub PR aberto, email chegou)
+   → Dispara processamento com IA automaticamente
+```
+
+**Sua vantagem sobre quem vem do Python:**
+Devs Python que migram pra IA precisam aprender Node.js pra fazer frontend
+e deploy moderno. Você já tem isso — só precisa aprender a camada de IA.
+
+**Stack completa que você tem hoje:**
+
+```
+Browser (React/Next.js)
+    ↕
+Node.js / Next.js API Routes  ← você domina isso
+    ↕
+Vercel AI SDK → Groq / OpenAI / Gemini  ← aprendendo agora
+    ↕
+PostgreSQL + Prisma  ← você domina isso
+    ↕
+Redis + BullMQ (background)  ← você viu no Hone, aprende depois
+```
+
+Você já tem as camadas de cima e de baixo.
+O que está aprendendo agora é o **meio** — a camada de IA.
+
+---
+
 ## Passo 5 — Contexto, RAG e padrões de produto
 
 Este é o passo que transforma dev em AI Engineer de produto.
