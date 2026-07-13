@@ -766,3 +766,216 @@ Você não vai ter esse problema.
 Siga a ordem:
 1. Dominar essas 3 aulas → 2. Tools → 3. Embeddings → 4. RAG
 e em 3 meses você vai ter condição de contribuir em projetos reais com IA.
+
+---
+
+---
+
+# Roadmap AI Engineering 2026 — Adaptado pra sua stack
+
+> Baseado no roadmap do @matheus.olivsv, readaptado pra quem é
+> fullstack TypeScript/Next.js e não quer virar ML Engineer —
+> quer **construir produto com IA**.
+
+---
+
+## Passo 0 — Linguagem
+
+O roadmap original pede Python. **Você já tem TypeScript — isso é vantagem.**
+
+No ecossistema TypeScript pra IA, o Vercel AI SDK cobre o que Python
+cobre com LangChain. A lógica é a mesma, a sintaxe é diferente.
+
+| Se você quer... | Faz o quê |
+|---|---|
+| Construir produto com IA | TypeScript + Vercel AI SDK ← você está aqui |
+| Trabalhar em empresa que usa Python | Aprender Python depois do TS |
+| Treinar modelos (ML Engineer) | Python + PyTorch — outro caminho |
+
+**Meta:** conseguir ler código Python de tutorial e traduzir a lógica pra TypeScript.
+Não precisa dominar Python agora — só não travar quando ver um exemplo em Python.
+
+---
+
+## Passo 1 — Você já escolheu o caminho certo
+
+O roadmap define 3 caminhos. O seu é claro:
+
+```
+AI Engineering (produto)
+  → API, RAG, agentes, contexto, deploy de produto com LLM
+  → Não treina modelo, usa modelo pronto
+  → É exatamente o que esse projeto (vercel-ai-sdk-rockeseat) ensina
+```
+
+Software engineering clássico (auth, banco, deploy, testes) você já tem.
+**O diferencial é dominar os passos 2 a 5 abaixo.**
+
+---
+
+## Passo 2 — Fundamentos de LLM (alto nível)
+
+Sem virar matemático. Você precisa de **intuição**, não de prova.
+
+**O que dominar:**
+
+**Tokens**
+O modelo não lê palavras — lê pedaços de palavras chamados tokens.
+"programação" = ~3 tokens. Você paga por token. Contexto é limitado em tokens.
+
+**Embedding**
+Texto transformado em vetor numérico. Textos com significado parecido
+ficam "próximos" no espaço vetorial. É a base do RAG.
+```
+"como instalar React" → [0.23, -0.45, 0.12, ...]
+"tutorial setup React" → [0.21, -0.43, 0.11, ...]  ← próximos!
+"receita de bolo"      → [0.95, 0.33, -0.67, ...]  ← longe
+```
+
+**Transformer (básico)**
+Arquitetura que permite ao modelo "prestar atenção" nas palavras certas.
+Não precisa implementar — só saber que existe e por que importa.
+
+**Prompt**
+Consequência dos fundamentos acima. Quando você entende tokens e atenção,
+o prompt engineering deixa de ser magia e vira lógica.
+
+**Onde estudar:**
+- DeepLearning.AI — "Generative AI for Everyone" (gratuito)
+- Hugging Face — NLP Course (gratuito)
+- Livro referência: "AI Engineering" — Chip Huyen
+
+**Meta:** explicar em 2 minutos como palavra vira número e como o modelo gera texto.
+
+---
+
+## Passo 3 — API na prática (você já começou aqui)
+
+Antes de framework, chame a API na mão. **Você já fez isso nessas 3 aulas.**
+
+**O que você já domina:**
+- ✓ Request com streaming (ver token chegando) — Aula 3
+- ✓ Estrutura de resposta com `role` (human / assistant) — Aula 2
+- ✓ Tool calling — você viu no AlltiControl
+- ✓ Output estruturado com Zod — Aula 1
+- ✓ Imagem (multimodal) — Aula 2
+
+**O que ainda falta nessa etapa:**
+- [ ] Chamar a API crua uma vez sem o SDK (entender o que o SDK abstrai)
+- [ ] Áudio (saber que existe, não precisa dominar agora)
+
+**Meta desta etapa:** script local que streama resposta e chama uma tool fake.
+Você quase chegou — falta só implementar uma tool de verdade.
+
+---
+
+## Passo 4 — Vercel AI SDK + LangGraph
+
+> O roadmap original recomenda LangChain + LangGraph.
+> **Para sua stack TypeScript, o Vercel AI SDK substitui o LangChain.**
+> O LangGraph você já usou no Hone — é o mesmo conceito.
+
+**Equivalência:**
+
+| Roadmap original (Python) | Sua stack (TypeScript) |
+|---|---|
+| LangChain | Vercel AI SDK (`ai` package) |
+| LangGraph | LangGraph JS ou `maxSteps` com tools |
+| Streaming eventos | `streamText` + `toUIMessageStreamResponse` |
+| Tool calling | `tool()` do Vercel AI SDK |
+| Provider swap | `createGroq()`, `createOpenAI()`, `google()` |
+
+**O que dominar:**
+- Contratos: `messages[]` → model → tool calls → tool results → resposta final
+- LangGraph JS — grafo de estados (você já viu no Hone com Guilherme)
+- Streaming de eventos no frontend com `useChat`
+- Por que usar o SDK antes de entender os internals
+
+**Onde estudar:**
+- LangChain Academy (gratuito) → academy.langchain.com
+- Docs Vercel AI SDK → sdk.vercel.ai/docs
+- LangGraph JS → langchain-ai.github.io/langgraphjs
+
+**Meta:** chatbot com 1 tool funcionando + entender o fluxo completo de um agente.
+Você está próximo — as 3 aulas desta pasta já colocaram você aqui.
+
+---
+
+## Passo 5 — Contexto, RAG e padrões de produto
+
+Este é o passo que transforma dev em AI Engineer de produto.
+
+**O que dominar:**
+
+**Janela de contexto**
+O modelo tem limite de tokens que consegue "ver" de uma vez.
+Quando estoura → ele esquece o início da conversa.
+Saber o que cabe, o que cortar, e como compactar é skill real.
+
+**Pipeline RAG**
+```
+INGESTÃO (uma vez):
+  documentos → chunks → embeddings → salva no pgvector
+
+RETRIEVAL (a cada pergunta):
+  pergunta → embedding → busca similar → top 5 chunks
+  → injeta no prompt → modelo responde com contexto
+```
+
+- Chunk: dividir texto grande em pedaços menores (200-500 palavras)
+- Quando usar RAG vs prompt direto: RAG pra docs grandes, prompt direto pra dados pequenos
+
+**Memória**
+- Curto prazo: thread atual (histórico de mensagens)
+- Longo prazo: perfil do usuário salvo no banco entre sessões
+
+**Padrões de entrevista e vaga:**
+- MCP (Model Context Protocol) — protocolo pra conectar ferramentas externas
+- Skills / Multi-agent — vários agentes com especialidades diferentes
+- Human-in-the-Loop — aprovação antes de ações destrutivas
+
+**Onde estudar:**
+- RAG: DeepLearning.AI — "LangChain for LLM Application Development"
+- MCP: modelcontextprotocol.io
+- pgvector: github.com/pgvector/pgvector (você já usa Postgres — vantagem)
+
+**Meta:** conseguir explicar como embeddingou um PDF de 80 páginas e buscou
+partes relevantes sem mandar tudo no prompt.
+
+---
+
+## Passo 6 — Os erros que a maioria comete (não cometa)
+
+| Erro comum | Por que trava |
+|---|---|
+| Pular direto pra "fazer um agente" | Não sabe o que acontece dentro. Tool call não vem. |
+| Só tutorial de prompt | Não sabe o que acontece quando estoura o contexto |
+| Framework sem API crua | Não consegue debugar quando algo quebra |
+| RAG antes de embedding | Chunk e vetor viram caixa preta |
+| LangGraph sem entender grafo | Copia código sem saber modificar |
+
+**A ordem correta:**
+```
+Fundamentos LLM (Passo 2)
+  → API na prática / Vercel AI SDK (Passo 3) ← você está aqui
+    → Tools + maxSteps (Passo 4)
+      → Contexto + RAG (Passo 5)
+        → Produção (observabilidade, deploy, custo)
+```
+
+---
+
+## Onde você está nesse roadmap hoje
+
+```
+✓ Passo 0 — Linguagem (TypeScript — domina)
+✓ Passo 1 — Caminho escolhido (AI Engineering produto)
+◑ Passo 2 — Fundamentos LLM (intuição OK, falta aprofundar embeddings)
+◑ Passo 3 — API na prática (generateText, streamText, multimodal ✓ | tools falta implementar)
+◑ Passo 4 — SDK + LangGraph (Vercel AI SDK iniciado ✓ | LangGraph via Hone ✓ | falta aprofundar)
+○ Passo 5 — RAG e contexto (próximo grande passo)
+○ Passo 6 — Produção (depois do RAG)
+```
+
+**Você está no meio do Passo 3 indo pro Passo 4.**
+Mais avançado do que parece para um junior com 6 meses de experiência.
