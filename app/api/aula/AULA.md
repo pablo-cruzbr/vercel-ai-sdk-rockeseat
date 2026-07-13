@@ -869,35 +869,307 @@ Você quase chegou — falta só implementar uma tool de verdade.
 
 ---
 
-## Passo 4 — Vercel AI SDK + LangGraph
+## Passo 4 — LangChain e LangGraph (o que são e pra que servem)
 
-> O roadmap original recomenda LangChain + LangGraph.
-> **Para sua stack TypeScript, o Vercel AI SDK substitui o LangChain.**
-> O LangGraph você já usou no Hone — é o mesmo conceito.
+> O roadmap recomenda LangChain + LangGraph.
+> Você não usou nenhum dos dois diretamente — o Guilherme implementou
+> no Hone, mas você não tocou nessa parte. Então vamos do zero.
 
-**Equivalência:**
+---
 
-| Roadmap original (Python) | Sua stack (TypeScript) |
+### LangChain — o que é?
+
+LangChain é um framework pra construir aplicações com LLMs.
+
+**Problema que resolve:**
+Sem LangChain, pra cada provider (Groq, OpenAI, Gemini) você escreve
+um código diferente. Com LangChain, você escreve uma vez e funciona
+com qualquer modelo.
+
+**Analogia:** LangChain é pra LLMs o que o Prisma é pra bancos de dados.
+O Prisma abstrai MySQL, PostgreSQL, SQLite — você escreve a mesma query.
+O LangChain abstrai Groq, OpenAI, Gemini — você escreve o mesmo código.
+
+**Em Python (o mais comum nos tutoriais):**
+```python
+from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
+
+# Troca de provider = troca de uma linha
+model = ChatOpenAI(model="gpt-4o")
+# model = ChatGroq(model="llama-3.1-8b-instant")
+
+response = model.invoke("O que é RAG?")
+print(response.content)
+```
+
+**No seu mundo TypeScript, o Vercel AI SDK faz o mesmo papel:**
+```ts
+// Vercel AI SDK = equivalente ao LangChain, mas em TypeScript
+import { generateText } from "ai"
+import { createGroq } from "@ai-sdk/groq"
+
+const groq = createGroq({ apiKey: process.env.GROQ_API_KEY })
+const { text } = await generateText({ model: groq("llama-3.1-8b-instant"), prompt: "O que é RAG?" })
+```
+
+**Você já usa o equivalente TypeScript do LangChain sem saber.**
+
+---
+
+### O que o LangChain tem além do básico?
+
+LangChain também resolve:
+
+- **Chains:** encadear várias chamadas ao LLM em sequência
+  ```
+  Prompt 1 → LLM → resultado → Prompt 2 (com resultado anterior) → LLM → resposta final
+  ```
+
+- **Memory:** salvar histórico de conversa automaticamente
+
+- **Document loaders:** carregar PDFs, páginas web, CSV pra dentro do LLM
+
+- **Text splitters:** dividir documentos grandes em chunks (essencial pra RAG)
+
+- **Retrievers:** buscar documentos relevantes por embedding (também essencial pra RAG)
+
+No Vercel AI SDK você implementa tudo isso manualmente — o LangChain
+entrega pronto. Pra aprender, o SDK é mais didático. Em produção
+com Python, LangChain acelera muito.
+
+---
+
+### LangGraph — o que é?
+
+LangGraph é uma extensão do LangChain pra construir **agentes com estado**.
+
+**Problema que resolve:**
+Um LLM sem estado responde e esquece. Cada request é independente.
+O LangGraph cria um **grafo de estados** onde o agente lembra onde
+está no fluxo e pode tomar decisões diferentes dependendo do estado atual.
+
+**O que é um grafo de estados?**
+
+Pensa num fluxograma. Cada caixinha é um "nó" (uma ação). As setas
+são as transições entre estados.
+
+```
+[START]
+   |
+   v
+[entrevistar_candidato]  ←─────────────────┐
+   |                                        |
+   | (respondeu?)                           |
+   v                                        |
+[avaliar_resposta] ──→ (precisa de mais?) ──┘
+   |
+   | (suficiente)
+   v
+[gerar_feedback]
+   |
+   v
+[END]
+```
+
+No projeto Hone, o Guilherme usou LangGraph exatamente assim:
+- Nó `interviewer`: faz perguntas
+- Nó `closing_feedback`: gera o feedback final
+- Nó `review_items_generator`: gera a lista de estudo
+- O grafo controla a transição entre eles
+
+**Por que LangGraph e não só um loop?**
+
+Com um loop simples, se o servidor reiniciar, você perde o estado.
+O LangGraph salva o estado no banco (PostgreSQL no Hone) entre requests.
+Isso se chama **checkpointing** — o agente "lembra" exatamente onde parou.
+
+---
+
+### Vercel AI SDK vs LangChain vs LangGraph — quando usar cada um?
+
+| Situação | Use |
 |---|---|
-| LangChain | Vercel AI SDK (`ai` package) |
-| LangGraph | LangGraph JS ou `maxSteps` com tools |
-| Streaming eventos | `streamText` + `toUIMessageStreamResponse` |
-| Tool calling | `tool()` do Vercel AI SDK |
-| Provider swap | `createGroq()`, `createOpenAI()`, `google()` |
+| Chat simples em TypeScript/Next.js | Vercel AI SDK |
+| Agente com tools em TypeScript | Vercel AI SDK + `maxSteps` |
+| Projeto em Python | LangChain |
+| Agente com fluxo complexo e estado | LangGraph JS |
+| Pipeline RAG em Python | LangChain |
+| Pipeline RAG em TypeScript | Vercel AI SDK + pgvector manual |
+
+**Resumo prático pra você agora:**
+Vercel AI SDK resolve tudo que você precisa em TypeScript.
+LangChain/LangGraph você vai encontrar em bases de código Python —
+importante saber ler e entender o conceito, não necessariamente implementar.
+
+---
+
+### Como o `maxSteps` do Vercel AI SDK substitui o LangGraph básico
+
+No Hone, o LangGraph controlava o fluxo da entrevista com um grafo.
+No Vercel AI SDK, o `maxSteps` faz algo parecido de forma mais simples:
+
+```ts
+const result = streamText({
+  model: groq('llama-3.1-8b-instant'),
+  messages: modelMessages,
+  maxSteps: 5,  // o modelo pode iterar até 5x antes de responder
+  tools: {
+    buscarDados: tool({
+      description: 'Busca dados no banco',
+      parameters: z.object({ query: z.string() }),
+      execute: async ({ query }) => {
+        // busca no banco e retorna
+        return `Resultado: ${query}`
+      }
+    })
+  }
+})
+```
+
+Com `maxSteps: 5`, o modelo pode:
+1. Decidir chamar `buscarDados`
+2. Receber o resultado
+3. Decidir chamar `buscarDados` de novo com outra query
+4. Receber o resultado
+5. Finalmente responder ao usuário
+
+Isso é um **agente simples** — sem precisar do LangGraph.
+LangGraph entra quando o fluxo é mais complexo (múltiplos nós,
+estado persistente entre requests, lógica condicional sofisticada).
+
+---
 
 **O que dominar:**
-- Contratos: `messages[]` → model → tool calls → tool results → resposta final
-- LangGraph JS — grafo de estados (você já viu no Hone com Guilherme)
-- Streaming de eventos no frontend com `useChat`
-- Por que usar o SDK antes de entender os internals
+- Entender o conceito de LangChain (abstração de provider)
+- Entender o conceito de LangGraph (grafo de estados com checkpointing)
+- Implementar agente simples com `maxSteps` + `tools` no Vercel AI SDK
+- Saber ler código LangChain em Python sem travar
 
 **Onde estudar:**
 - LangChain Academy (gratuito) → academy.langchain.com
-- Docs Vercel AI SDK → sdk.vercel.ai/docs
+- Docs Vercel AI SDK → sdk.vercel.ai/docs/ai-sdk-core/agents
 - LangGraph JS → langchain-ai.github.io/langgraphjs
 
-**Meta:** chatbot com 1 tool funcionando + entender o fluxo completo de um agente.
-Você está próximo — as 3 aulas desta pasta já colocaram você aqui.
+**Meta:** chatbot com 1 tool funcionando localmente usando `maxSteps`.
+Esse é o próximo exercício concreto após dominar as 3 aulas desta pasta.
+
+---
+
+### Redis e BullMQ — o que são e pra que servem no contexto de IA
+
+O Guilherme também usou Redis e BullMQ no Hone. Você não implementou,
+então vamos entender os conceitos do zero.
+
+---
+
+#### Redis
+
+Redis é um banco de dados **em memória** (RAM) — extremamente rápido.
+
+**Por que em memória?**
+Um banco normal (PostgreSQL) salva no disco. Ler do disco leva ~5ms.
+O Redis salva na RAM. Ler da RAM leva ~0.1ms. É 50x mais rápido.
+
+**O que isso tem a ver com IA?**
+
+Quando você usa BullMQ (abaixo), ele precisa de um lugar pra armazenar
+as filas de processamento. O Redis é esse lugar — por ser rápido,
+o BullMQ consegue verificar a fila constantemente sem sobrecarregar.
+
+**Outros usos do Redis em projetos com IA:**
+- Cache de respostas (se 100 pessoas perguntarem a mesma coisa, responde do cache)
+- Rate limiting (limitar quantas chamadas ao LLM por usuário/minuto)
+- Sessões de usuário (guardar contexto temporário)
+
+**Analogia:**
+PostgreSQL = arquivo físico numa gaveta (organizado, durável, mais lento)
+Redis = bloco de rascunho na mesa (temporário, rapidíssimo de acessar)
+
+---
+
+#### BullMQ
+
+BullMQ é uma biblioteca de **filas de processamento em background**.
+
+**Problema que resolve:**
+
+Imagina que o usuário faz upload de um PDF de currículo (como no Hone).
+Processar esse PDF com IA demora 5-10 segundos.
+
+**Sem BullMQ:**
+```
+Usuário faz upload
+  → servidor começa a processar (5-10s)
+  → usuário fica esperando olhando tela branca
+  → servidor pode dar timeout
+  → experiência péssima
+```
+
+**Com BullMQ:**
+```
+Usuário faz upload
+  → servidor retorna IMEDIATAMENTE: { status: "processing" }
+  → BullMQ coloca o job na fila do Redis
+  → Worker pega o job da fila e processa em background
+  → Quando termina, atualiza o banco: { status: "completed" }
+  → Frontend faz polling e descobre que terminou
+```
+
+O usuário não espera. O processamento acontece nos bastidores.
+
+**Analogia:**
+Sem BullMQ = lanchonete onde o atendente cozinha na sua frente (você espera)
+Com BullMQ = restaurante onde o garçom anota o pedido e a cozinha prepara
+             em paralelo enquanto você conversa (você não espera)
+
+**Como funciona no código (simplificado):**
+
+```ts
+// 1. Na rota de upload (resposta imediata)
+export async function POST(request: Request) {
+  const file = await request.formData()
+
+  // Salva o arquivo no storage
+  await storage.upload(file)
+
+  // Adiciona na fila — não processa agora
+  await resumeQueue.add('process-resume', { resumeId: '123' })
+
+  // Retorna imediatamente, sem esperar o processamento
+  return Response.json({ status: 'processing' })
+}
+
+// 2. No Worker (roda em background, separado da API)
+const worker = new Worker('resume-queue', async (job) => {
+  // Esse código roda quando o BullMQ pega o job da fila
+  const text = await extractTextFromPDF(job.data.resumeId)
+  const summary = await generateText({ model: groq('llama-3.1-8b-instant'), prompt: text })
+  await database.update({ resumeId: job.data.resumeId, summary, status: 'completed' })
+})
+```
+
+**Por que isso importa pra IA especificamente?**
+
+Chamadas ao LLM são lentas (1-30 segundos dependendo do modelo e tamanho).
+Em qualquer app de IA que processa documentos, imagens, ou faz tarefas
+pesadas em background, BullMQ + Redis é o padrão profissional.
+
+---
+
+**Resumo Redis + BullMQ:**
+
+| | Redis | BullMQ |
+|---|---|---|
+| O que é | Banco em memória (RAM) | Biblioteca de filas |
+| Pra que serve | Storage rápido pra filas e cache | Processar tarefas em background |
+| Dependência | Independente | Precisa do Redis pra funcionar |
+| Quando usar | Cache, sessões, rate limiting | Upload + IA lenta, emails, relatórios |
+| Alternativa simples | - | Vercel Background Functions, Trigger.dev |
+
+**Você não precisa saber implementar isso agora.**
+Mas quando seu projeto tiver que processar algo demorado sem travar a UI,
+você vai saber que a solução chama BullMQ + Redis.
 
 ---
 
