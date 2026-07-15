@@ -153,6 +153,291 @@ O SDK abstrai toda a complexidade: autenticação, parsing, streaming, erros.
 
 ---
 
+---
+
+---
+
+# AULA 0 — Gemini sem SDK (na mão, do zero)
+
+> Antes de usar o Vercel AI SDK, faça UMA VEZ na mão.
+> Você vai entender o que o SDK está abstraindo pra você.
+> Depois disso, o SDK vai fazer muito mais sentido.
+
+---
+
+## Por que o Gemini?
+
+- Gratuito (tier free: 15 requests/min, sem cartão de crédito)
+- API simples e bem documentada
+- Suporta texto, imagem e streaming
+
+---
+
+## Passo 1 — Pegar a chave de API
+
+1. Acesse: **aistudio.google.com**
+2. Clique em "Get API key"
+3. Cria um projeto e copia a chave
+4. Adicione no `.env.local`:
+```
+GEMINI_API_KEY=sua_chave_aqui
+```
+
+---
+
+## Passo 2 — Chat simples SEM streaming (mais fácil pra começar)
+
+Crie o arquivo: `app/api/aula/gemini-raw/route.ts`
+
+```ts
+export async function POST(request: Request) {
+  const { message } = await request.json()
+
+  // Monta a URL manualmente com a chave
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`
+
+  // Faz o fetch diretamente pra API do Google
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: message }],
+        },
+      ],
+    }),
+  })
+
+  const data = await response.json()
+
+  // O Google retorna o texto aqui dentro
+  const text = data.candidates[0].content.parts[0].text
+
+  return Response.json({ answer: text })
+}
+```
+
+**Testando com curl ou Postman:**
+```bash
+POST http://localhost:3000/api/aula/gemini-raw
+Body: { "message": "O que é RAG em IA?" }
+```
+
+**O que você vai receber:**
+```json
+{ "answer": "RAG (Retrieval Augmented Generation) é uma técnica que..." }
+```
+
+---
+
+## Entendendo o formato da API do Gemini
+
+```json
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [{ "text": "sua mensagem aqui" }]
+    }
+  ]
+}
+```
+
+- `contents` = array de mensagens (igual ao `messages` do Vercel AI SDK)
+- `role` = quem está falando: `"user"` ou `"model"` (no Gemini é "model", não "assistant")
+- `parts` = conteúdo da mensagem (pode ser texto, imagem, etc.)
+
+**O que o Google retorna:**
+```json
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [{ "text": "A resposta da IA aqui..." }]
+      }
+    }
+  ]
+}
+```
+
+Você precisa navegar por `candidates[0].content.parts[0].text` pra pegar o texto.
+O Vercel AI SDK faz isso pra você automaticamente — por isso `const { text } = await generateText(...)` é tão mais limpo.
+
+---
+
+## Passo 3 — Chat com HISTÓRICO (múltiplas mensagens)
+
+Um chat de verdade lembra o que foi dito antes. Passe o array de mensagens completo:
+
+```ts
+export async function POST(request: Request) {
+  // Frontend manda o histórico completo a cada mensagem
+  const { messages } = await request.json()
+  // messages = [
+  //   { role: 'user', text: 'Olá' },
+  //   { role: 'model', text: 'Olá! Como posso ajudar?' },
+  //   { role: 'user', text: 'O que é RAG?' }
+  // ]
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: {
+        parts: [{ text: 'Você é um assistente de programação. Responda apenas sobre código.' }]
+      },
+      contents: messages.map((msg: { role: string; text: string }) => ({
+        role: msg.role,
+        parts: [{ text: msg.text }],
+      })),
+    }),
+  })
+
+  const data = await response.json()
+  const text = data.candidates[0].content.parts[0].text
+
+  return Response.json({ answer: text })
+}
+```
+
+**Como o frontend enviaria:**
+```ts
+// Você gerencia o histórico manualmente no frontend
+const [messages, setMessages] = useState([])
+
+async function sendMessage(userText: string) {
+  const newMessages = [...messages, { role: 'user', text: userText }]
+
+  const res = await fetch('/api/aula/gemini-raw', {
+    method: 'POST',
+    body: JSON.stringify({ messages: newMessages })
+  })
+
+  const { answer } = await res.json()
+
+  // Adiciona a resposta da IA no histórico
+  setMessages([...newMessages, { role: 'model', text: answer }])
+}
+```
+
+Perceba: **você está gerenciando o histórico na mão**.
+O hook `useChat` do Vercel AI SDK faz exatamente isso automaticamente.
+
+---
+
+## Passo 4 — Chat com STREAMING (tokens chegando em tempo real)
+
+```ts
+export async function POST(request: Request) {
+  const { messages } = await request.json()
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?key=${process.env.GEMINI_API_KEY}&alt=sse`
+  //                                                                              ↑ streamGenerateContent   ↑ alt=sse = Server-Sent Events
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: messages.map((msg: { role: string; text: string }) => ({
+        role: msg.role,
+        parts: [{ text: msg.text }],
+      })),
+    }),
+  })
+
+  // Pega o stream bruto da resposta do Google
+  const stream = response.body!
+
+  // Cria um novo stream que processa os chunks
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      const reader = stream.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+
+        // Cada chunk vem como: "data: {...json...}\n\n"
+        const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+
+        for (const line of lines) {
+          const json = line.replace('data: ', '')
+          try {
+            const parsed = JSON.parse(json)
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
+            if (text) {
+              // Envia o token pro frontend
+              controller.enqueue(new TextEncoder().encode(text))
+            }
+          } catch {}
+        }
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(readableStream, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  })
+}
+```
+
+**Como ler esse stream no frontend (sem useChat):**
+```ts
+const response = await fetch('/api/aula/gemini-raw', {
+  method: 'POST',
+  body: JSON.stringify({ messages })
+})
+
+const reader = response.body!.getReader()
+const decoder = new TextDecoder()
+let fullText = ''
+
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+
+  const chunk = decoder.decode(value)
+  fullText += chunk
+  setAnswer(fullText) // atualiza a UI a cada chunk
+}
+```
+
+Isso é exatamente o que o `useChat` do Vercel AI SDK faz por baixo dos panos.
+
+---
+
+## O que você aprendeu com a Aula 0
+
+```
+SEM SDK (na mão):                    COM SDK (Vercel AI SDK):
+─────────────────────────────────    ──────────────────────────────
+fetch('generativelanguage...')       generateText({ model, prompt })
+JSON.stringify({ contents: [...] })  (abstrai o body)
+data.candidates[0].content...       const { text } = ...
+Gerenciar histórico manualmente      useChat() faz tudo
+Parsear stream manualmente           streamText() + toUIMessageStreamResponse()
+```
+
+**A diferença é real:** sem SDK você escreve ~60 linhas.
+Com SDK você escreve ~5 linhas e tem mais features.
+
+Mas agora que você fez na mão, você **sabe o que está por baixo**.
+Quando der erro no SDK, você vai saber onde procurar.
+
+---
+
 ## A base que aparece nos 3 arquivos
 
 Todo arquivo começa igual. Entenda isso uma vez e vale pra sempre:
