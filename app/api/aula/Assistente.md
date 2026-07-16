@@ -5,6 +5,96 @@
 
 ---
 
+## O que você já aprendeu na AULA.md e vai usar aqui
+
+O Jarvis não introduz nenhum conceito novo.
+Ele é a **Aula 3 aplicada num caso de uso real** — com pequenos pedaços das Aulas 1 e 3 juntos.
+
+```
+AULA.md                           JARVIS (o que você vai construir)
+─────────────────────────────     ─────────────────────────────────────────
+Base — createGroq()           →   instanciar o cliente Groq na rota
+Aula 3 — streamText()         →   gerar a resposta do Jarvis em tempo real
+Aula 3 — convertToModelMessages→  converter as mensagens do chat pra o modelo
+Aula 3 — toUIMessageStreamResponse→ enviar o stream de volta pro frontend
+Aula 3 — useChat()            →   hook React que gerencia todo o chat
+Aulas 1,2,3 — system prompt   →   instruções de comportamento + dados do Pablo
+```
+
+Se você ainda não leu a Aula 3 no AULA.md, leia antes de continuar.
+Tudo que o Jarvis usa veio de lá.
+
+---
+
+### Por que `streamText` e não `generateText`?
+
+Essa é a primeira decisão técnica do projeto.
+
+A AULA.md explica a diferença assim:
+
+```
+generateText → espera a resposta COMPLETA antes de retornar (Aula 1 e 2)
+streamText   → retorna a resposta PEDAÇO POR PEDAÇO em tempo real (Aula 3)
+```
+
+Para um chat com um assistente, `streamText` é a escolha certa.
+Imagine um recrutador abrindo seu portfólio e esperando 5 segundos olhando tela branca.
+Com streaming, ele vê a resposta aparecer na hora — igual ao ChatGPT.
+
+**Jarvis usa `streamText` porque é um chat interativo.**
+
+---
+
+### Por que `convertToModelMessages`?
+
+A AULA.md explica que o `useChat` do frontend e o LLM falam formatos diferentes:
+
+```
+Frontend (useChat) envia UIMessage:
+  { id: "abc", role: "user", content: "Quais projetos o Pablo tem?" }
+
+O LLM precisa de ModelMessage:
+  { role: "user", content: [{ type: "text", text: "Quais projetos..." }] }
+```
+
+`convertToModelMessages` faz essa tradução.
+Sem ela, o modelo não entenderia as mensagens — é o mesmo problema que a Aula 3 resolve.
+
+---
+
+### Por que `toUIMessageStreamResponse`?
+
+A AULA.md explica:
+
+> "Empacota o stream num formato especial que o hook `useChat` do frontend
+> consegue ler e exibir em tempo real."
+
+No Jarvis isso fecha o ciclo:
+`streamText` gera os tokens → `toUIMessageStreamResponse` formata pra o `useChat` → usuário vê a resposta aparecer.
+
+---
+
+### O system prompt é o segredo do Jarvis
+
+A AULA.md ensina `system` nas três aulas:
+
+```
+Aula 1 (example): system define que a IA é um "gerador de questões"
+Aula 2 (forum):   system define que a IA é um "instrutor da Rocketseat"
+Aula 3 (chat):    system define que a IA "só responde sobre programação"
+```
+
+No Jarvis, o `system` é o mesmo conceito — mas o conteúdo é seus dados reais.
+Em vez de comportamento genérico, você injeta:
+- Quem é o Pablo
+- Quais são os projetos (com resultados reais)
+- Como ele pode ajudar empresas
+
+**O modelo lê o system prompt e responde com base nele.**
+Sem banco de dados, sem RAG. É o padrão mais simples possível — e já funciona.
+
+---
+
 ## O que vamos construir
 
 ```
@@ -57,15 +147,19 @@ Usuário pergunta: "Quais projetos o Pablo tem?"
 Crie o arquivo: `app/api/jarvis/route.ts`
 
 ```ts
+// ↓ Aula 3 — as mesmas importações do chat/route.ts
 import { convertToModelMessages, streamText } from "ai"
+// ↓ Base — createGroq aparece nas 3 aulas (sempre o mesmo padrão)
 import { createGroq } from "@ai-sdk/groq"
 
+// Base — instanciar o cliente uma vez fora da função (exatamente igual à Aula 3)
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 })
 
-// Todas as informações do Pablo ficam aqui
-// O modelo lê isso e responde como se fosse o Jarvis
+// ↓ CONCEITO: system prompt (Aulas 1, 2 e 3 — sempre presente)
+// A diferença do Jarvis: o system contém os DADOS REAIS do Pablo,
+// não só instrução de comportamento.
 const PABLO_CONTEXT = `
 Você é Jarvis, o assistente virtual do Pablo Cruz.
 Sua função é apresentar o Pablo de forma profissional, destacando seus projetos,
@@ -153,14 +247,20 @@ DIFERENCIAIS:
 
 export async function POST(request: Request) {
   const { messages } = await request.json()
+
+  // ↓ Aula 3 — converte UIMessage[] (frontend) → ModelMessage[] (LLM)
+  // Sem isso o modelo não entende o formato que o useChat envia
   const modelMessages = await convertToModelMessages(messages)
 
+  // ↓ Aula 3 — streamText (e não generateText) porque é um chat interativo
+  // NÃO tem await — você não espera a resposta completa, retorna o stream direto
   const result = streamText({
-    model: groq('llama-3.3-70b-versatile'), // modelo mais inteligente pra parecer mais natural
-    system: PABLO_CONTEXT,
+    model: groq('llama-3.3-70b-versatile'),
+    system: PABLO_CONTEXT,  // ← Aulas 1, 2, 3 — instrução de comportamento + dados do Pablo
     messages: modelMessages,
   })
 
+  // ↓ Aula 3 — empacota o stream no formato que o useChat do frontend espera
   return result.toUIMessageStreamResponse()
 }
 ```
@@ -174,10 +274,10 @@ Crie o arquivo: `app/jarvis/page.tsx`
 ```tsx
 "use client"
 
+// ↓ Aula 3 — pacote separado do "ai" principal (você instalou @ai-sdk/react)
 import { useChat } from "@ai-sdk/react"
 import { useRef, useEffect } from "react"
 
-// Perguntas sugeridas pra aparecer no lado esquerdo
 const SUGGESTED_QUESTIONS = [
   "Em quais projetos o Pablo trabalha?",
   "Como o Pablo pode ajudar minha empresa?",
@@ -185,9 +285,17 @@ const SUGGESTED_QUESTIONS = [
 ]
 
 export default function JarvisPage() {
+  // ↓ Aula 3 — useChat gerencia TODO o estado do chat automaticamente:
+  //   messages     → histórico completo de mensagens
+  //   input        → valor atual do campo de texto
+  //   handleInputChange → atualiza o input conforme o usuário digita
+  //   handleSubmit → envia a mensagem e faz POST /api/jarvis
+  //   isLoading    → true enquanto o LLM está gerando a resposta
+  //   append()     → adiciona uma mensagem sem precisar do formulário (para os botões sugeridos)
   const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
     api: "/api/jarvis",
-    // Mensagem inicial do Jarvis (aparece sem o usuário enviar nada)
+    // initialMessages: mensagem de boas-vindas que aparece na tela sem chamar a API
+    // O useChat aceita isso — é a mesma estrutura de messages que ele gerencia
     initialMessages: [
       {
         id: "welcome",
@@ -205,7 +313,8 @@ export default function JarvisPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Quando usuário clica numa pergunta sugerida
+  // append() é do useChat — injeta uma mensagem diretamente no histórico
+  // e dispara o POST pra /api/jarvis sem precisar de um formulário
   function handleSuggestedQuestion(question: string) {
     append({ role: "user", content: question })
   }
@@ -304,7 +413,7 @@ export default function JarvisPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
+          {/* Input — handleSubmit e handleInputChange vêm do useChat (Aula 3) */}
           <form
             onSubmit={handleSubmit}
             className="px-4 py-4 border-t border-zinc-800 flex gap-2"
@@ -345,27 +454,30 @@ Nada novo pra adicionar — usa a mesma chave do Groq que você já configurou.
 
 ---
 
-## Como o Jarvis funciona por baixo (resumo)
+## Como o Jarvis funciona por baixo (referenciando a AULA.md)
 
 ```
 1. Página carrega
-   → useChat inicializa com a mensagem de boas-vindas do Jarvis
+   → useChat (Aula 3) inicializa com a mensagem de boas-vindas
    → Nenhuma chamada à API ainda
 
 2. Usuário clica numa pergunta sugerida OU digita e envia
-   → append() ou handleSubmit() dispara
-   → useChat faz POST /api/jarvis com o histórico completo
+   → append() ou handleSubmit() do useChat (Aula 3) dispara
+   → useChat faz POST /api/jarvis com messages[] (UIMessage[])
 
-3. Backend recebe
-   → convertToModelMessages() converte o formato
-   → streamText() chama o Groq com o PABLO_CONTEXT no system prompt
-   → Groq lê todas as informações do Pablo e gera resposta como Jarvis
+3. Backend — route.ts /api/jarvis
+   → convertToModelMessages() (Aula 3) converte UIMessage[] → ModelMessage[]
+   → streamText() (Aula 3) chama o Groq com PABLO_CONTEXT no system (Aulas 1,2,3)
+   → Groq lê os dados do Pablo no system e gera resposta como Jarvis
 
-4. Resposta chega em streaming
-   → useChat recebe token por token
-   → UI atualiza em tempo real (você vê o texto aparecer)
-   → isLoading fica true até terminar
+4. Resposta volta em streaming
+   → toUIMessageStreamResponse() (Aula 3) empacota pra o useChat
+   → useChat recebe token por token e atualiza messages[]
+   → isLoading (Aula 3) fica true até terminar — UI exibe "Jarvis está digitando..."
 ```
+
+Cada linha do fluxo veio de algo explicado na Aula 3.
+O único diferencial é o conteúdo do `system` — onde entram seus dados reais.
 
 ---
 
