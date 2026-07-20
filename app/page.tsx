@@ -1,592 +1,243 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useEffect, useRef, useState } from "react";
 
-interface Post {
-  id: number;
-  content: string;
-}
+const SUGGESTED_QUESTIONS = [
+  "Em quais projetos o Pablo trabalha?",
+  "Como o Pablo pode ajudar minha empresa?",
+  "Quais são as principais habilidades dele?",
+];
 
-interface FormData {
-  nome: string;
-  cargo: string;
-  stack: string;
-  projetos: string;
-  objetivo: string;
-  tom: string;
-}
-
-interface RepoResult {
-  ownerRepo: string;
-  name: string;
-  description: string;
-  languages: string[];
-  topics: string[];
-  commitCount: number;
-  stars: number;
-  posts: string[];
-}
-
-const defaultForm: FormData = {
-  nome: "",
-  cargo: "",
-  stack: "",
-  projetos: "",
-  objetivo: "",
-  tom: "profissional",
+const INITIAL_MESSAGE = {
+  id: "intro",
+  role: "assistant" as const,
+  parts: [
+    {
+      type: "text" as const,
+      text:
+        "Olá, sou Alfred, o assistente virtual do Pablo. Posso apresentar sua trajetória, projetos, áreas de atuação e explicar como ele pode ajudar seu negócio.",
+    },
+  ],
 };
 
-const DEFAULT_REPOS = `ProgramadoresSemPatria/HB03-2025_bugless
-ProgramadoresSemPatria/HB01-2026-ai-mock-interview
-pablo-cruzbr/Allti-Control
-pablo-cruzbr/Mestre_da_Comanda_Saas
-pablo-cruzbr/Portifolio-Metadata-API
-pablo-cruzbr/Controle-Financeiro-Sheets-API`;
-
-export default function App() {
-  const [tab, setTab] = useState<"posts" | "github">("posts");
-
-  return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <h1 className="font-bold text-lg">
-            Pablo<span className="text-blue-500">Dev</span>
-          </h1>
-          <nav className="flex gap-1 bg-[#111] border border-gray-800 rounded-lg p-1">
-            <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>
-              Gerar posts
-            </TabButton>
-            <TabButton active={tab === "github"} onClick={() => setTab("github")}>
-              Analisar repositórios
-            </TabButton>
-          </nav>
-        </div>
-      </header>
-
-      {tab === "posts" ? <PostsTab /> : <GithubTab />}
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-        active ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-// ─── posts tab ────────────────────────────────────────────────────────────────
-
-const LINKEDIN_LIMIT = 3000;
-
-function PostsTab() {
-  const [form, setForm] = useState<FormData>(defaultForm);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState<number | null>(null);
-  const [edited, setEdited] = useState<Record<number, string>>({});
-  const [regenerating, setRegenerating] = useState<number | null>(null);
-
-  useEffect(() => {
-    try {
-      const f = localStorage.getItem("pablodev-form");
-      if (f) setForm(JSON.parse(f));
-      const p = localStorage.getItem("pablodev-posts");
-      if (p) setPosts(JSON.parse(p));
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem("pablodev-form", JSON.stringify(form)); } catch {}
-  }, [form]);
-
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setPosts([]);
-    setEdited({});
-    setLoading(true);
-    try {
-      const res = await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const newPosts = data.posts.map((content: string, i: number) => ({ id: i, content }));
-      setPosts(newPosts);
-      try { localStorage.setItem("pablodev-posts", JSON.stringify(newPosts)); } catch {}
-    } catch {
-      setError("Não foi possível gerar os posts. Tente novamente.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function regeneratePost(postId: number) {
-    setRegenerating(postId);
-    try {
-      const res = await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, singleAngle: postId }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setPosts((prev) => {
-        const updated = prev.map((p) => p.id === postId ? { ...p, content: data.post } : p);
-        try { localStorage.setItem("pablodev-posts", JSON.stringify(updated)); } catch {}
-        return updated;
-      });
-      setEdited((prev) => { const n = { ...prev }; delete n[postId]; return n; });
-    } catch {} finally {
-      setRegenerating(null);
-    }
-  }
-
-  function getContent(post: Post) {
-    return edited[post.id] ?? post.content;
-  }
-
-  async function copyPost(post: Post) {
-    await navigator.clipboard.writeText(getContent(post));
-    setCopied(post.id);
-    setTimeout(() => setCopied(null), 2000);
-  }
-
-  return (
-    <main className="max-w-5xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
-      <section>
-        <h2 className="text-xl font-bold mb-6">Seu perfil</h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label="Nome" name="nome" value={form.nome} onChange={handleChange} placeholder="Pablo Cruz" />
-          <Field label="Cargo atual" name="cargo" value={form.cargo} onChange={handleChange} placeholder="Desenvolvedor Fullstack Jr" />
-          <Field label="Stack principal" name="stack" value={form.stack} onChange={handleChange} placeholder="TypeScript, React, Next.js, Node.js, PostgreSQL" />
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-400">Projetos e conquistas</label>
-            <Textarea
-              name="projetos"
-              value={form.projetos}
-              onChange={handleChange}
-              placeholder="AltiControl SaaS (76 usuários, 10 meses), Mestre das Comandas, Bugless (hackathon IA)..."
-              className="bg-[#111] border-gray-700 text-white placeholder:text-gray-600 resize-none h-28"
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-400">Objetivo</label>
-            <select name="objetivo" value={form.objetivo} onChange={handleChange}
-              className="bg-[#111] border border-gray-700 text-white rounded-md px-3 py-2 text-sm" required>
-              <option value="">Selecione...</option>
-              <option value="nova vaga">Conseguir uma nova vaga</option>
-              <option value="visibilidade">Aumentar visibilidade</option>
-              <option value="networking">Expandir network</option>
-              <option value="posicionamento">Posicionamento como dev</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-400">Tom dos posts</label>
-            <select name="tom" value={form.tom} onChange={handleChange}
-              className="bg-[#111] border border-gray-700 text-white rounded-md px-3 py-2 text-sm">
-              <option value="profissional">Profissional</option>
-              <option value="direto">Direto e objetivo</option>
-              <option value="storytelling">Storytelling pessoal</option>
-              <option value="tecnico">Técnico com contexto</option>
-            </select>
-          </div>
-          <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-500 font-bold mt-2 h-11">
-            {loading ? "Gerando posts..." : "Gerar posts"}
-          </Button>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-        </form>
-      </section>
-
-      <section>
-        <h2 className="text-xl font-bold mb-6">
-          {posts.length > 0 ? `${posts.length} posts gerados` : "Posts"}
-        </h2>
-        {!loading && posts.length === 0 && (
-          <div className="border border-dashed border-gray-800 rounded-xl p-10 text-center text-gray-600">
-            <p className="text-sm">Preencha seu perfil e clique em &quot;Gerar posts&quot;</p>
-          </div>
-        )}
-        {loading && (
-          <div className="flex flex-col gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-[#111] border border-gray-800 rounded-xl p-5 animate-pulse h-32" />
-            ))}
-          </div>
-        )}
-        {posts.length > 0 && (
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => exportTxt(posts.map(getContent), `posts-linkedin-${new Date().toISOString().slice(0,10)}`)}
-              className="text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-3 py-1.5 rounded-md transition-colors"
-            >
-              ⬇ Baixar .txt
-            </button>
-            <button
-              onClick={() => exportPdf(posts.map(getContent), "Posts LinkedIn — Pablo Cruz")}
-              className="text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-3 py-1.5 rounded-md transition-colors"
-            >
-              ⬇ Baixar .pdf
-            </button>
-          </div>
-        )}
-        <div className="flex flex-col gap-4">
-          {posts.map((post) => {
-            const content = getContent(post);
-            const over = content.length > LINKEDIN_LIMIT;
-            return (
-              <div key={post.id} className="bg-[#111] border border-gray-800 rounded-xl p-5 flex flex-col gap-3">
-                <textarea
-                  value={content}
-                  onChange={(e) => setEdited((prev) => ({ ...prev, [post.id]: e.target.value }))}
-                  rows={Math.max(5, content.split("\n").length + 1)}
-                  className="text-sm text-gray-300 leading-relaxed bg-transparent border-none outline-none resize-none w-full"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`text-xs tabular-nums ${over ? "text-red-400 font-semibold" : "text-gray-600"}`}>
-                    {content.length}/{LINKEDIN_LIMIT}{over && " — acima do limite"}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => regeneratePost(post.id)}
-                      disabled={regenerating === post.id}
-                      className="text-xs text-gray-600 hover:text-blue-400 transition-colors disabled:opacity-40"
-                    >
-                      {regenerating === post.id ? "..." : "↺ Regenerar"}
-                    </button>
-                    <Button variant="outline" size="sm" onClick={() => copyPost(post)}
-                      className="border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 text-xs h-7 px-3">
-                      {copied === post.id ? "Copiado!" : "Copiar"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </main>
-  );
-}
-
-// ─── github tab ───────────────────────────────────────────────────────────────
-
-function GithubTab() {
-  const [reposText, setReposText] = useState(DEFAULT_REPOS);
-  const [authorName, setAuthorName] = useState("Pablo Cruz");
-  const [tom, setTom] = useState("profissional");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [results, setResults] = useState<RepoResult[]>([]);
-  const [apiErrors, setApiErrors] = useState<string[]>([]);
-  const [openRepo, setOpenRepo] = useState<string | null>(null);
-  const [copiedPost, setCopiedPost] = useState<string | null>(null);
-
-  async function handleAnalyze(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setResults([]);
-    setApiErrors([]);
-    setOpenRepo(null);
-    setLoading(true);
-
-    const repos = reposText
-      .split("\n")
-      .map((r) => r.trim())
-      .filter(Boolean);
-
-    try {
-      const res = await fetch("/api/repos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repos, tom, authorName }),
-      });
-      if (!res.ok) throw new Error("Erro ao analisar repositórios");
-      const data = await res.json();
-      setResults(data.results ?? []);
-      setApiErrors(data.errors ?? []);
-      if (data.results?.length > 0) setOpenRepo(data.results[0].ownerRepo);
-    } catch {
-      setError("Não foi possível analisar os repositórios. Tente novamente.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function copyPost(key: string, content: string) {
-    await navigator.clipboard.writeText(content);
-    setCopiedPost(key);
-    setTimeout(() => setCopiedPost(null), 2000);
-  }
-
-  const totalPosts = results.reduce((acc, r) => acc + r.posts.length, 0);
-
-  return (
-    <main className="max-w-5xl mx-auto px-6 py-10">
-      <form onSubmit={handleAnalyze} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="md:col-span-2 flex flex-col gap-1">
-          <label className="text-sm text-gray-400">Repositórios (um por linha — formato owner/repo)</label>
-          <Textarea
-            value={reposText}
-            onChange={(e) => setReposText(e.target.value)}
-            className="bg-[#111] border-gray-700 text-white placeholder:text-gray-600 resize-none h-36 font-mono text-xs"
-          />
-        </div>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-400">Seu nome</label>
-            <input
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              className="bg-[#111] border border-gray-700 text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-400">Tom</label>
-            <select value={tom} onChange={(e) => setTom(e.target.value)}
-              className="bg-[#111] border border-gray-700 text-white rounded-md px-3 py-2 text-sm">
-              <option value="profissional">Profissional</option>
-              <option value="direto">Direto e objetivo</option>
-              <option value="storytelling">Storytelling pessoal</option>
-              <option value="tecnico">Técnico com contexto</option>
-            </select>
-          </div>
-          <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-500 font-bold h-11 mt-auto">
-            {loading ? "Analisando..." : "Gerar posts"}
-          </Button>
-        </div>
-      </form>
-
-      {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-      {apiErrors.length > 0 && (
-        <div className="mb-4">
-          {apiErrors.map((e) => (
-            <p key={e} className="text-yellow-500 text-xs">{e}</p>
-          ))}
-        </div>
-      )}
-
-      {loading && (
-        <div className="flex flex-col gap-4">
-          <p className="text-gray-500 text-sm">Buscando dados dos repositórios e gerando posts...</p>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-[#111] border border-gray-800 rounded-xl p-6 animate-pulse h-24" />
-          ))}
-        </div>
-      )}
-
-      {results.length > 0 && (
-        <>
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-            <p className="text-gray-500 text-sm">
-              {results.length} repositórios · {totalPosts} posts gerados
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  const all = results.flatMap((r) => r.posts.map((p, i) => `[${r.name} — Post ${i+1}]\n\n${p}`));
-                  exportTxt(all, `repos-linkedin-${new Date().toISOString().slice(0,10)}`);
-                }}
-                className="text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-3 py-1.5 rounded-md transition-colors"
-              >
-                ⬇ Todos .txt
-              </button>
-              <button
-                onClick={() => {
-                  const all = results.flatMap((r) => r.posts.map((p, i) => `[${r.name} — Post ${i+1}]\n\n${p}`));
-                  exportPdf(all, "Posts LinkedIn por Repositório — Pablo Cruz");
-                }}
-                className="text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-3 py-1.5 rounded-md transition-colors"
-              >
-                ⬇ Todos .pdf
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4">
-            {results.map((repo) => (
-              <div key={repo.ownerRepo} className="bg-[#111] border border-gray-800 rounded-xl overflow-hidden">
-                {/* repo header */}
-                <button
-                  onClick={() => setOpenRepo(openRepo === repo.ownerRepo ? null : repo.ownerRepo)}
-                  className="w-full flex items-start justify-between p-5 hover:bg-white/5 transition-colors text-left"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="font-bold text-white">{repo.name}</h3>
-                      <span className="text-xs text-gray-600">{repo.ownerRepo}</span>
-                      <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
-                        {repo.commitCount} commits
-                      </span>
-                      {repo.stars > 0 && (
-                        <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
-                          ★ {repo.stars}
-                        </span>
-                      )}
-                    </div>
-                    {repo.description && (
-                      <p className="text-sm text-gray-500 mt-1">{repo.description}</p>
-                    )}
-                    <div className="flex gap-2 flex-wrap mt-2">
-                      {repo.languages.map((l) => (
-                        <span key={l} className="text-xs text-blue-400">{l}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <span className="text-gray-600 ml-4 text-lg">
-                    {openRepo === repo.ownerRepo ? "−" : "+"}
-                  </span>
-                </button>
-
-                {/* posts list */}
-                {openRepo === repo.ownerRepo && (
-                  <div className="border-t border-gray-800 p-5 flex flex-col gap-4">
-                    {repo.posts.length > 0 && (
-                      <div className="flex gap-2">
-                        <button onClick={() => exportTxt(repo.posts, repo.name)}
-                          className="text-xs border border-gray-800 text-gray-500 hover:text-white hover:border-gray-600 px-3 py-1 rounded-md transition-colors">
-                          ⬇ .txt
-                        </button>
-                        <button onClick={() => exportPdf(repo.posts, `${repo.name} — Posts LinkedIn`)}
-                          className="text-xs border border-gray-800 text-gray-500 hover:text-white hover:border-gray-600 px-3 py-1 rounded-md transition-colors">
-                          ⬇ .pdf
-                        </button>
-                      </div>
-                    )}
-                    {repo.posts.length === 0 && (
-                      <p className="text-gray-600 text-sm">Nenhum post gerado para este repositório.</p>
-                    )}
-                    {repo.posts.map((post, i) => {
-                      const key = `${repo.ownerRepo}-${i}`;
-                      return (
-                        <div key={key} className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-4 flex flex-col gap-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-600 font-mono">Post {i + 1}</span>
-                            <button
-                              onClick={() => copyPost(key, post)}
-                              className="text-xs text-gray-500 hover:text-blue-400 transition-colors"
-                            >
-                              {copiedPost === key ? "Copiado!" : "Copiar"}
-                            </button>
-                          </div>
-                          <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{post}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </main>
-  );
-}
-
-// ─── export helpers ───────────────────────────────────────────────────────────
-
-function exportTxt(posts: string[], filename: string) {
-  const body = posts
-    .map((p, i) => `══ POST ${i + 1} ══\n\n${p}`)
-    .join("\n\n" + "─".repeat(50) + "\n\n");
-  const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function exportPdf(posts: string[], title: string) {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-  const margin = 15;
-  const pageW = doc.internal.pageSize.getWidth() - margin * 2;
-  const pageH = doc.internal.pageSize.getHeight();
-  let y = 22;
-
-  // título
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
-  doc.setTextColor(20, 20, 20);
-  doc.text(title, margin, y);
-  y += 12;
-
-  posts.forEach((post, i) => {
-    if (y > pageH - 30) { doc.addPage(); y = 22; }
-
-    // cabeçalho do post
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(120, 120, 120);
-    doc.text(`POST ${i + 1}`, margin, y);
-    y += 4;
-    doc.setDrawColor(220, 220, 220);
-    doc.line(margin, y, margin + pageW, y);
-    y += 6;
-
-    // conteúdo
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(30, 30, 30);
-    const lines = doc.splitTextToSize(post, pageW) as string[];
-    lines.forEach((line) => {
-      if (y > pageH - 18) { doc.addPage(); y = 22; }
-      doc.text(line, margin, y);
-      y += 5;
-    });
-    y += 10;
+export default function AssistentePabloCruz() {
+  const { messages, sendMessage, status, setMessages } = useChat({
+    messages: [INITIAL_MESSAGE],
+    transport: new DefaultChatTransport({
+      api: "/api/AssistentePabloCruz",
+    }),
   });
 
-  const filename = title.replace(/[^a-zA-Z0-9\-_ ]/g, "").trim();
-  doc.save(`${filename}.pdf`);
+  function clearChat() {
+    setMessages([INITIAL_MESSAGE]);
+  }
+
+  const [input, setInput] = useState("");
+  const isLoading = status === "submitted" || status === "streaming";
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  function submitText(text: string) {
+    if (!text.trim() || isLoading) return;
+    sendMessage({ text });
+    setInput("");
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    submitText(input);
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="mx-auto grid min-h-screen max-w-6xl grid-cols-1 items-center gap-16 px-6 py-16 lg:grid-cols-2 lg:px-8">
+        {/* Coluna esquerda */}
+        <div>
+          <div className="mb-6 flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest text-[#5B8DEF]">
+            <span className="text-base">✧</span> Inteligência Artificial
+          </div>
+
+          <h1 className="text-5xl font-bold leading-[1.1] tracking-tight sm:text-6xl">
+            Conheça Pablo <br />
+            através do{" "}
+            <span className="text-[#5B8DEF]">Alfred.</span>
+          </h1>
+
+          <p className="mt-6 max-w-md text-[15px] leading-relaxed text-[#8B90A0]">
+            Um assistente com informações sobre minha trajetória, projetos e
+            áreas de atuação. Pergunte o que quiser.
+          </p>
+
+          <div className="mt-12">
+            <p className="mb-3 text-[11px] font-mono uppercase tracking-widest text-[#5B6070]">
+              Experimente perguntar
+            </p>
+            <div className="flex flex-col gap-2.5">
+              {SUGGESTED_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => submitText(q)}
+                  disabled={isLoading}
+                  className="rounded-md border border-white/10 bg-white/[0.02] px-4 py-3 text-left text-[13px] text-[#D7D9E0] transition hover:border-[#5B8DEF]/40 hover:bg-[#5B8DEF]/[0.06] disabled:opacity-40"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Coluna direita — chat */}
+        <div className="flex h-[560px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0A0C12]">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#5B8DEF]/30 bg-[#5B8DEF]/10">
+                <BotIcon />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-white">Alfred</p>
+                <p className="flex items-center gap-1.5 text-[11px] text-[#8B90A0]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#5B8DEF]" />
+                  Assistente do Pablo
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={clearChat}
+                className="text-[11px] text-[#5B6070] hover:text-[#8B90A0] transition"
+                title="Limpar conversa"
+              >
+                Limpar
+              </button>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#5B6070]">
+                Powered by AI
+              </span>
+            </div>
+          </div>
+
+          {/* Mensagens */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5">
+            <div className="flex flex-col gap-4">
+              {messages.map((m) => {
+                const isUser = m.role === "user";
+                const text = m.parts
+                  .filter((p) => p.type === "text")
+                  .map((p) => (p as { text: string }).text)
+                  .join("");
+
+                return (
+                  <div
+                    key={m.id}
+                    className={`max-w-[85%] rounded-lg px-4 py-3 text-[13px] leading-relaxed ${
+                      isUser
+                        ? "ml-auto bg-[#5B8DEF] text-white"
+                        : "bg-white/[0.04] text-[#D7D9E0]"
+                    }`}
+                  >
+                    <MarkdownText text={text} />
+                  </div>
+                );
+              })}
+
+              {isLoading && (
+                <div className="flex max-w-[85%] gap-1 rounded-lg bg-white/[0.04] px-4 py-3">
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#5B6070] [animation-delay:-0.2s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#5B6070] [animation-delay:-0.1s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#5B6070]" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Input */}
+          <form
+            onSubmit={handleSubmit}
+            className="flex items-center gap-2 border-t border-white/10 p-4"
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Pergunte algo sobre o Pablo..."
+              disabled={isLoading}
+              className="flex-1 rounded-md border border-white/10 bg-white/[0.02] px-4 py-2.5 text-[13px] text-white placeholder:text-[#5B6070] outline-none focus:border-[#5B8DEF]/50 focus:ring-1 focus:ring-[#5B8DEF]/30 disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#5B8DEF] transition hover:bg-[#5B8DEF]/90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <SendIcon />
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-// ─── shared components ────────────────────────────────────────────────────────
-
-function Field({
-  label, name, value, onChange, placeholder,
-}: {
-  label: string; name: string; value: string;
-  onChange: React.ChangeEventHandler<HTMLInputElement>; placeholder?: string;
-}) {
+// Renderiza **negrito** e quebras de linha do texto do LLM
+function MarkdownText({ text }: { text: string }) {
+  const paragraphs = text.split(/\n\n+/);
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm text-gray-400">{label}</label>
-      <input
-        type="text" name={name} value={value} onChange={onChange} placeholder={placeholder}
-        className="bg-[#111] border border-gray-700 text-white placeholder:text-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-      />
+    <div className="flex flex-col gap-2">
+      {paragraphs.map((para, i) => {
+        const lines = para.split("\n");
+        return (
+          <p key={i}>
+            {lines.map((line, j) => (
+              <span key={j}>
+                <InlineBold text={line} />
+                {j < lines.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
+        );
+      })}
     </div>
+  );
+}
+
+function InlineBold({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+          <strong key={i} className="font-semibold text-white">
+            {part.slice(2, -2)}
+          </strong>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
+function BotIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B8DEF" strokeWidth="2">
+      <rect x="4" y="9" width="16" height="11" rx="2" />
+      <path d="M12 9V5" strokeLinecap="round" />
+      <circle cx="12" cy="4" r="1.2" fill="#5B8DEF" stroke="none" />
+      <circle cx="9" cy="14" r="1.2" fill="#5B8DEF" stroke="none" />
+      <circle cx="15" cy="14" r="1.2" fill="#5B8DEF" stroke="none" />
+      <path d="M2 13h2M20 13h2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
+      <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
+    </svg>
   );
 }
